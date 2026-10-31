@@ -348,8 +348,8 @@ window.FIREBASE_CONFIG = {
     </div><canvas id="game" width="960" height="360" aria-label="Traffic Runner game screen. Move the mouse or swipe to steer through traffic."></canvas></div>
     <div class="controls">
       <div class="runner-now"><canvas id="nowCv" width="112" height="64"></canvas><div>Driving <b id="nowName">—</b><br><span id="nowPerk"></span></div></div>
-      <div class="keys">Move the mouse and the car follows it (or use the arrow keys) · <kbd>Space</kbd> start · <kbd>P</kbd> pause</div>
-      <div class="tap-hint">Hold your finger anywhere on the game and drag: the car moves with your finger, side to side and forward and back.</div>
+      <div class="keys">Move the mouse to steer (or <kbd>←</kbd> <kbd>→</kbd>) · <kbd>Space</kbd> start · <kbd>P</kbd> pause</div>
+      <div class="tap-hint">Hold your finger on the game and swipe left and right to steer.</div>
       <div class="snd"><button class="snd-btn" data-snd="sfx" type="button" aria-pressed="true">Sound: On</button></div>
     </div>
   </section>
@@ -1113,13 +1113,9 @@ const cv = $("game"); let ctx = setupCanvas(cv);
 let GW = 560, GH = 470, SCALE = 1;
 const LANES = 6, LANE_W = 54, ROAD_W = LANES*LANE_W;
 const CAR_S = .85;                            // every car is drawn (and collides) at 85% size
-let ROAD_X = 0, PY = 0, HOME_Y = 0;      // PY is where your car is now; HOME_Y is where it starts
+let ROAD_X = 0, PY = 0;
 // your car sits about two-thirds of the way down a phone screen (room for your thumb underneath), a bit lower on computers
-let LAST_GH = 0;
-function layout(){ ROAD_X = Math.round(GW/2 - ROAD_W/2); HOME_Y = Math.round(GH*(isFS() ? .66 : .74));
-  let run = false; try { run = game.state === "running"; } catch {}
-  if (run && LAST_GH){ const k = GH/LAST_GH; PY *= k; game.ty *= k; } else { PY = HOME_Y; try { game.ty = HOME_Y; } catch {} }
-  LAST_GH = GH; }
+function layout(){ ROAD_X = Math.round(GW/2 - ROAD_W/2); PY = Math.round(GH*(isFS() ? .66 : .74)); }
 const laneX = i => ROAD_X + LANE_W*(i + .5);
 const isPhone = () => matchMedia("(pointer:coarse)").matches && Math.min(innerWidth, innerHeight) < 700;
 const isFS = () => document.body.classList.contains("fs");
@@ -1164,7 +1160,7 @@ const SINK_CHANCE = 1/25, GOLD_CHANCE = 1/25;
 const game = {state:"ready", t:0, speed:0, dist:0, round:1, roundDist:0, runCoins:0, px:0, tx:0, vx:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
   scroll:0, rowT:0, safe:2, banner:null, paused:false, mt:0};
 function resetRun(){
-  PY = HOME_Y; Object.assign(game, {t:0, speed:420, dist:0, round:1, roundDist:0, runCoins:0, px:laneX(2.5), tx:laneX(2.5), vx:0, ty:HOME_Y, vy:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
+  Object.assign(game, {t:0, speed:420, dist:0, round:1, roundDist:0, runCoins:0, px:laneX(2.5), tx:laneX(2.5), vx:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
     rowT:1.1, safe:2 + Math.floor(Math.random()*2), banner:{text:"Round 1", sub: themeFor(curCar()) ? themeFor(curCar()).world : (TEST.on ? "Test drive" : "Let's roll!"), t:1.8}, paused:false, monsterEnd:false, mt:0, crashT:0,
     goldSpawned:false, goldCaught:false, smokeT:0});
 }
@@ -1204,7 +1200,7 @@ function spawnRow(){
     const car = truck ? {body:"truck", w:32*CAR_S, l:96*CAR_S, main: TRAFFIC_COLS[Math.floor(Math.random()*TRAFFIC_COLS.length)], accent:"#f4f4f8"}
       : (() => { const b = TRAFFIC_BODIES[Math.floor(Math.random()*TRAFFIC_BODIES.length)], m = TRAFFIC_COLS[Math.floor(Math.random()*TRAFFIC_COLS.length)]; return {body:b, w:BODY[b].w*CAR_S, l:BODY[b].l*CAR_S, main:m, accent:shade(m, .5), ex:"", tier:0}; })();
     car.x = laneX(l) + (Math.random() - .5)*6; car.y = -car.l/2 - 20 - Math.random()*30; car.v = v*(.97 + Math.random()*.06); car.lane = l;
-    if (r >= 3 && !truck && Math.random() < Math.min(.25, .06 + r*.03)) car.change = {dir: Math.random() < .5 ? -1 : 1, at: 60 + Math.random()*Math.max(60, HOME_Y - 320)};
+    if (r >= 3 && !truck && Math.random() < Math.min(.25, .06 + r*.03)) car.change = {dir: Math.random() < .5 ? -1 : 1, at: 60 + Math.random()*Math.max(60, PY - 320)};
     game.cars.push(car);
   });
   // a trail of coins down the safe lane
@@ -1283,7 +1279,7 @@ function update(dt){
   game.smoke.forEach(p => { p.x += p.vx*dt; p.y += (p.vy + (game.state === "running" ? game.speed*.75 : 40))*dt*(game.paused ? 0 : 1); p.life -= game.paused ? 0 : dt; }); game.smoke = game.smoke.filter(p => p.life > 0 && p.y < GH + 30);
   game.parts.forEach(p => { p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 200*dt; p.life -= dt; }); game.parts = game.parts.filter(p => p.life > 0);
   if (game.state === "monster"){ updateSink(dt); return; }
-  if (game.state === "ready"){ game.px += (game.tx - game.px)*Math.min(1, dt*6); PY += (HOME_Y - PY)*Math.min(1, dt*6); if (Math.random() < dt*8) emitSmoke(c, dt); return; }
+  if (game.state === "ready"){ game.px += (game.tx - game.px)*Math.min(1, dt*6); if (Math.random() < dt*8) emitSmoke(c, dt); return; }
   if (game.state !== "running" || game.paused){ return; }
   if (game.dist >= game.monsterAt){ startSink(); return; }
   if (!game.goldSpawned && game.dist >= game.goldAt){ game.goldSpawned = true; spawnGold(); }
@@ -1301,12 +1297,6 @@ function update(dt){
   const want = Math.max(drift ? -1250 : -1900, Math.min(drift ? 1250 : 1900, (game.tx - game.px)*(drift ? 11 : 26)));
   game.vx += (want - game.vx)*Math.min(1, dt*(drift ? 9 : 40));
   game.px = Math.max(lo - 4, Math.min(hi + 4, game.px + game.vx*dt));
-  // forward and back: the car can go anywhere between the score bar and the bottom of the screen
-  if (keys.U) game.ty -= 520*dt; if (keys.D) game.ty += 520*dt;
-  const top = 78, bot = GH - 34; game.ty = Math.max(top, Math.min(bot, game.ty));
-  const wantY = Math.max(drift ? -1150 : -1700, Math.min(drift ? 1150 : 1700, (game.ty - PY)*(drift ? 11 : 26)));
-  game.vy += (wantY - game.vy)*Math.min(1, dt*(drift ? 9 : 40));
-  PY = Math.max(top - 4, Math.min(bot + 4, PY + game.vy*dt));
   const wantYaw = drift ? Math.max(-.7, Math.min(.7, game.vx*.0011)) : Math.max(-.18, Math.min(.18, game.vx*.00013));
   game.yaw += (wantYaw - game.yaw)*Math.min(1, dt*(drift ? 6 : 14));
   emitSmoke(c, dt);
@@ -1481,7 +1471,7 @@ function draw(){
   if (game.state === "ready"){
     ctx.fillStyle = "rgba(8,8,20,.5)"; ctx.fillRect(0, 0, GW, GH);
     text("TRAFFIC RUNNER", GW/2, oy, GW < 420 ? 28 : 34, "#ff8a2a", "center");
-    text(isPhone() ? "Hold your finger down and drag to drive" : "Move your mouse and the car follows it", GW/2, oy + 30, 13, "#f4f0e8", "center");
+    text(isPhone() ? "Hold your finger down and swipe to steer" : "Move your mouse left and right to steer", GW/2, oy + 30, 13, "#f4f0e8", "center");
     text("Weave through traffic · grab coins · open chests", GW/2, oy + 50, 11, "#b8bcd8", "center");
     text(isPhone() ? "Tap to start" : "Click or press Space to start", GW/2, oy + 78, 14, "#7dffe0", "center");
   }
@@ -1510,7 +1500,7 @@ function frame(now){
 }
 
 /* ---------- controls ---------- */
-const keys = {L:false, R:false, U:false, D:false};
+const keys = {L:false, R:false};
 const typing = () => { const a = document.activeElement; return a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.tagName === "BUTTON"); };
 function go(){
   if (cfOpen) return;
@@ -1524,24 +1514,21 @@ document.addEventListener("keydown", e => {
   if (typing()) return;
   if (e.code === "ArrowLeft" || e.code === "KeyA"){ keys.L = true; e.preventDefault(); }
   else if (e.code === "ArrowRight" || e.code === "KeyD"){ keys.R = true; e.preventDefault(); }
-  else if (e.code === "ArrowUp" || e.code === "KeyW"){ keys.U = true; e.preventDefault(); }
-  else if (e.code === "ArrowDown" || e.code === "KeyS"){ keys.D = true; e.preventDefault(); }
   else if (e.code === "Space" || e.code === "Enter"){ e.preventDefault(); if (!e.repeat) go(); }
   else if (e.code === "KeyP" && game.state === "running") game.paused = !game.paused;
 });
-document.addEventListener("keyup", e => { if (e.code === "ArrowLeft" || e.code === "KeyA") keys.L = false; if (e.code === "ArrowRight" || e.code === "KeyD") keys.R = false; if (e.code === "ArrowUp" || e.code === "KeyW") keys.U = false; if (e.code === "ArrowDown" || e.code === "KeyS") keys.D = false; });
+document.addEventListener("keyup", e => { if (e.code === "ArrowLeft" || e.code === "KeyA") keys.L = false; if (e.code === "ArrowRight" || e.code === "KeyD") keys.R = false; });
 // mouse: the car follows the pointer. Finger: hold and swipe, and the car moves with your swipe.
 const toWorldX = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left)/r.width*GW; };
-const toWorldY = e => { const r = cv.getBoundingClientRect(); return (e.clientY - r.top)/r.height*GH; };
-let touchX = null, touchY = null;
+let touchX = null;
 cv.addEventListener("pointerdown", e => { e.preventDefault(); Sound.wake();
-  if (e.pointerType !== "mouse"){ touchX = toWorldX(e); touchY = toWorldY(e); cv.setPointerCapture?.(e.pointerId); }
-  else if (game.state === "running"){ game.tx = toWorldX(e); game.ty = toWorldY(e); }
+  if (e.pointerType !== "mouse"){ touchX = toWorldX(e); cv.setPointerCapture?.(e.pointerId); }
+  else if (game.state === "running") game.tx = toWorldX(e);
   if (game.state !== "running" || game.paused) go(); });
 cv.addEventListener("pointermove", e => {
-  if (e.pointerType === "mouse"){ if (game.state === "running" || game.state === "ready") game.tx = toWorldX(e); if (game.state === "running") game.ty = toWorldY(e); return; }
-  if (touchX === null) return; const x = toWorldX(e), y = toWorldY(e); game.tx += (x - touchX)*1.25; game.ty += (y - touchY)*1.25; touchX = x; touchY = y; });
-const endTouch = e => { if (e.pointerType !== "mouse"){ touchX = null; touchY = null; } };
+  if (e.pointerType === "mouse"){ if (game.state === "running" || game.state === "ready") game.tx = toWorldX(e); return; }
+  if (touchX === null) return; const x = toWorldX(e); game.tx += (x - touchX)*1.25; touchX = x; });
+const endTouch = e => { if (e.pointerType !== "mouse") touchX = null; };
 cv.addEventListener("pointerup", endTouch); cv.addEventListener("pointercancel", endTouch);
 cv.addEventListener("contextmenu", e => e.preventDefault());
 const sideways = matchMedia("(pointer:coarse) and (orientation:landscape) and (max-height:520px)");
