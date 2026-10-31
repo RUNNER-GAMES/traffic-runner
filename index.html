@@ -1,0 +1,1691 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Traffic Runner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&family=Figtree:wght@400;500;700&display=swap">
+<style>
+/* Layout: one column "expedition log" — game cabinet on top, chest + collection + save ledger below. Single night-desert look by choice. */
+:root{
+  --night:#101218; --night-2:#161a22; --panel:#222834; --line:#3a4456;
+  --sand:#ff8a2a; --sand-deep:#c85a12; --faience:#7dffe0; --ink:#f4f6fa; --muted:#a8b0c4;
+  --danger:#ff6b6b;
+  --r-common:#b9bcc9; --r-uncommon:#6fd36a; --r-rare:#4aa8ff; --r-epic:#b77bff; --r-legendary:#ffb23f; --r-mythic:#ff5ea8;
+  --display:"Pixelify Sans", "Courier New", monospace;
+  --num:"Press Start 2P", "Pixelify Sans", "Courier New", monospace;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--night);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  background-image:radial-gradient(circle at 15% -10%, #3a2410 0, transparent 45%), radial-gradient(circle at 95% 5%, #102a3a 0, transparent 40%);
+  background-attachment:fixed}
+.wrap{max-width:1040px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:.01em}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--faience);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand h1{font-size:30px;color:var(--sand)}
+.brand span{font-family:var(--display);color:var(--muted);font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.purse{display:flex;gap:10px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-family:var(--display);font-size:16px;font-variant-numeric:tabular-nums}
+.coin-ic{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,#ffc83a 55%,#a87010);box-shadow:0 0 0 2px #8a5a10 inset}
+.chip small{font-family:var(--body);color:var(--muted);font-size:12px}
+
+/* account banner */
+.acct{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:20px 28px;align-items:center;padding:22px;border-radius:16px;
+  background:linear-gradient(120deg,#3a1e0a,#161a2a 55%,#0e2a3a);border:2px solid var(--sand);box-shadow:0 0 0 4px rgba(255,162,95,.15),0 0 28px rgba(255,162,95,.22),0 16px 36px rgba(0,0,0,.35)}
+.acct h2{font-size:clamp(26px,4.4vw,40px);color:var(--sand);line-height:1.05}
+.acct-copy{display:flex;flex-direction:column;gap:10px;min-width:0}
+.acct-copy p{margin:0;font-size:17px;max-width:46ch}
+.acct-form{display:flex;flex-direction:column;gap:10px;min-width:0}
+.acct-form input{font-size:16px;padding:12px 14px}
+.btn.big{font-size:20px;padding:14px 22px}
+.tabs{display:flex;gap:6px;background:#141536;border:1px solid var(--line);border-radius:12px;padding:4px}
+.tabs button{flex:1;border:0;border-radius:9px;padding:9px;background:transparent;color:var(--muted);font-family:var(--display);font-size:17px}
+.tabs button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.acct.signed{grid-template-columns:1fr auto;padding:12px 18px;border-width:1px;border-color:var(--line);box-shadow:none;background:var(--night-2)}
+.acct.signed h2,.acct.signed #acctLead{display:none}
+.acct.signed .acct-copy{gap:0}
+@media (max-width:760px){.acct{grid-template-columns:minmax(0,1fr)}.acct.signed{grid-template-columns:minmax(0,1fr)}}
+
+/* end-of-run sign-up prompt */
+.over-cta{position:absolute;inset:0;z-index:2;display:grid;place-items:center;padding:12px;background:rgba(12,14,20,.94)}
+.oc-card{max-width:520px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.oc-card h3{font-size:clamp(20px,3vw,28px);color:#ff9a8a}
+.oc-card h3 span{color:var(--ink)}
+.oc-card p{margin:0;font-size:15px}
+.oc-btns{justify-content:center}
+.oc-again{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:14px;padding:4px}
+@media (max-width:640px){.screen{display:flex;flex-direction:column}.over-cta{order:2;position:static;background:#16173a;border-top:1px solid var(--line);padding:16px}.btn.big{font-size:18px}}
+
+/* phones and touch screens */
+@media (max-width:700px){
+  .wrap{gap:16px;padding-block:12px 32px}
+  .brand h1{font-size:24px}
+  .brand span{display:none}
+  .purse{gap:6px;width:100%}
+  .chip{padding:5px 10px;font-size:14px}
+  .acct{padding:16px;gap:14px}
+  .acct-copy p{font-size:15px}
+  .cabinet{padding:6px;border-radius:12px;margin-left:calc(-1 * max(10px, env(safe-area-inset-left, 0px)) + 4px);margin-right:calc(-1 * max(10px, env(safe-area-inset-right, 0px)) + 4px)}
+  .controls{padding:8px 2px 2px;gap:8px}
+  .runner-now{order:2;font-size:12px}
+}
+
+.tap-hint{display:none;color:var(--muted);font-size:14px;text-align:center;width:100%}
+@media (pointer:coarse){ .keys{display:none} .tap-hint{display:block} .controls{flex-direction:column;align-items:stretch} .runner-now{justify-content:center} }
+
+/* turn-your-phone overlay: shown only on touch phones held sideways */
+.rotate{position:fixed;inset:0;z-index:60;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;
+  background:var(--night);padding:24px max(24px, env(safe-area-inset-right, 0px)) 24px max(24px, env(safe-area-inset-left, 0px))}
+.rotate h2{font-size:28px;color:var(--sand)} .rotate p{margin:0;color:var(--muted);font-size:16px}
+.rotate .phone{width:46px;height:78px;border:4px solid var(--sand);border-radius:10px;position:relative;animation:tilt 2s ease-in-out infinite}
+.rotate .phone::after{content:"";position:absolute;left:50%;bottom:5px;width:10px;height:3px;margin-left:-5px;border-radius:2px;background:var(--sand)}
+@keyframes tilt{0%,30%{transform:rotate(-90deg)}60%,100%{transform:rotate(0)}}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px){ .rotate{display:flex} body{overflow:hidden} }
+
+/* full-screen chest opening */
+.chest-full{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  background:radial-gradient(circle at 50% 45%, #2a2420 0, #0b0b14 75%);
+  padding:max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.cf-rays{position:absolute;left:50%;top:44%;width:160vmax;height:160vmax;margin:-80vmax 0 0 -80vmax;opacity:0;transition:none;
+  background:repeating-conic-gradient(from 0deg, var(--cf, #ffd34d) 0deg 7deg, transparent 7deg 22deg);
+  -webkit-mask:radial-gradient(circle, #000 0, transparent 55%);mask:radial-gradient(circle, #000 0, transparent 55%);animation:spin 18s linear infinite}
+.chest-full.revealed .cf-rays{opacity:var(--rayop,.28);animation-duration:var(--rayspd,18s);transition:opacity .4s}
+.chest-full[data-tier="5"].revealed .cf-rays{background:repeating-conic-gradient(from 0deg, #ff4f6b 0 6deg, transparent 6deg 15deg, #ffd34d 15deg 21deg, transparent 21deg 30deg, #5fe03a 30deg 36deg, transparent 36deg 45deg, #2de2e6 45deg 51deg, transparent 51deg 60deg, #b77bff 60deg 66deg, transparent 66deg 75deg)}
+.cf-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.cf-inner{z-index:3}
+@keyframes flash{0%{opacity:var(--flash,.8)}100%{opacity:0}}
+@keyframes flash2{0%{opacity:1}20%{opacity:0}35%{opacity:.9}100%{opacity:0}}
+.chest-full{transition:background-color .6s}
+.chest-full.dim{background:#03020a}
+.chest-full .cf-chest{transition:filter .5s}
+.chest-full.glowing .cf-chest{filter:drop-shadow(0 0 var(--glowpx,12px) var(--cf)) drop-shadow(0 0 calc(var(--glowpx,12px) * 2) var(--cf))}
+.chest-full.shaking .cf-chest{animation-duration:var(--shk,.12s)}
+.chest-full.quake .cf-inner{animation:quake .6s}
+@keyframes quake{0%,100%{transform:none}15%{transform:translate(-8px,4px)}30%{transform:translate(7px,-5px)}45%{transform:translate(-6px,-3px)}60%{transform:translate(5px,4px)}75%{transform:translate(-3px,2px)}}
+.chest-full.revealed[data-tier="3"] .cf-tier,.chest-full.revealed[data-tier="4"] .cf-tier,.chest-full.revealed[data-tier="5"] .cf-tier{animation:slam .55s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes slam{0%{transform:scale(3.2);opacity:0}100%{transform:scale(1);opacity:1}}
+.chest-full[data-tier="4"] .cf-tier{font-size:clamp(24px,7vw,34px);box-shadow:0 0 18px rgba(255,178,63,.5)}
+.chest-full[data-tier="5"] .cf-tier{font-size:clamp(30px,9vw,44px);border-width:3px;background:linear-gradient(90deg,#ff4f6b,#ffd34d,#5fe03a,#2de2e6,#b77bff,#ff4f6b);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent !important;border-color:#ff5ea8;animation:slam .6s cubic-bezier(.2,1.6,.4,1) both, goldshine 2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.cf-inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;width:min(100%,520px)}
+.cf-char{width:min(56vw,250px);height:min(56vw,250px);opacity:0;transform:translateY(40%) scale(.3)}
+.chest-full.revealed .cf-char{animation:rise .7s cubic-bezier(.2,1.4,.4,1) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+.cf-chest{width:min(52vw,230px);height:min(52vw,230px);margin-top:-14%}
+.chest-full.shaking .cf-chest{animation:shake .12s linear infinite}
+.cf-info{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;opacity:0;transform:translateY(10px);transition:none;visibility:hidden}
+.chest-full.revealed .cf-info{opacity:1;transform:none;visibility:visible;transition:opacity .4s .35s, transform .4s .35s}
+.cf-tier{font-family:var(--display);font-size:clamp(18px,5vw,24px);letter-spacing:.14em;text-transform:uppercase;padding:4px 16px;border-radius:999px;border:2px solid currentColor}
+.cf-name{font-family:var(--display);font-weight:700;font-size:clamp(30px,9vw,46px);line-height:1.05;text-wrap:balance}
+.cf-note{color:var(--muted);font-size:16px}
+.cf-btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.cf-hint{color:var(--muted);font-size:15px;font-family:var(--display);height:1.4em}
+.chest-full.revealed .cf-hint{display:none}
+@media (prefers-reduced-motion: reduce){ .cf-flash.go,.cf-flash.go2,.chest-full.quake .cf-inner{animation:none} .cf-rays{animation:none} .chest-full.shaking .cf-chest{animation:none} .chest-full.revealed .cf-char{animation:none;opacity:1;transform:none} }
+
+/* numbers: blocky arcade font, easy to read */
+#hudCoins,#hudOwned,#hudBest{font-family:var(--num);font-size:12px;line-height:1.4}
+.odds td:not(:first-child){font-family:var(--num);font-size:11px}
+.best-big b{font-family:var(--num) !important;font-size:clamp(22px,5vw,32px) !important;line-height:1.4 !important}
+.recs dd{font-family:var(--num) !important;font-size:14px !important;line-height:1.8}
+.lb .sc{font-family:var(--num) !important;font-size:12px !important}
+.lb .rk{font-family:var(--num) !important;font-size:14px !important}
+.card .num,.card .cnt{font-family:var(--num) !important;font-size:8px !important}
+.chip small{font-size:12px}
+#ocSum{font-family:var(--num);font-size:.6em}
+
+/* full-screen game on phones */
+.fs-exit{display:none}
+body.fs .cabinet{position:fixed;inset:0;z-index:45;margin:0;border:0;border-radius:0;box-shadow:none;padding:env(safe-area-inset-top, 0px) 0 0 0;background:#0d0b2a;display:flex;flex-direction:column}
+body.fs .screen{flex:1;border-radius:0;display:block;position:relative}
+body.fs canvas#game{width:100%;height:100%}
+body.fs .controls{display:none}
+body.fs .fs-exit{display:block;
+  font-family:var(--display);font-size:15px;color:var(--ink);background:rgba(12,14,20,.7);border:1px solid var(--line);border-radius:999px;padding:7px 20px}
+body.fs .over-cta{position:absolute;left:0;right:0;top:auto;bottom:calc(56px + env(safe-area-inset-bottom, 0px));background:rgba(12,14,20,.92);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+body.fs .rotate{z-index:70}
+
+/* sound buttons */
+.snd{display:flex;gap:8px;justify-content:center}
+.snd-btn{white-space:nowrap;font-family:var(--display);font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+.snd-btn[aria-pressed="false"]{color:var(--muted);background:transparent;text-decoration:line-through}
+.fs-bar{display:none}
+body.fs .fs-bar{display:flex;gap:8px;align-items:center;position:absolute;z-index:3;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom, 0px))}
+body.fs .fs-bar .snd-btn{background:rgba(12,14,20,.7);padding:7px 12px}
+
+/* test swim mode */
+.test-bar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:12px 16px;border-radius:12px;background:repeating-linear-gradient(45deg,#2a2210,#2a2210 12px,#1f1a0c 12px,#1f1a0c 24px);border:2px dashed #ffd34d;color:var(--ink);font-size:14px}
+.test-bar b{font-family:var(--display);color:#ffd34d;font-size:17px}
+.test-bar span{flex:1;min-width:200px;color:#e8dcb8}
+body.testing .card .num::after{content:" · TEST";color:#ffd34d}
+
+/* THE CREATOR's name: gold lettering */
+.creator{font-weight:800 !important;letter-spacing:.08em;background:linear-gradient(90deg,#ffd34d,#fff6c8,#ffb000,#fff6c8,#ffd34d);background-size:200% 100%;
+  -webkit-background-clip:text;background-clip:text;color:transparent !important;animation:goldshine 3s linear infinite;filter:drop-shadow(0 0 6px rgba(255,200,60,.45))}
+@keyframes goldshine{to{background-position:200% 0}}
+@media (prefers-reduced-motion: reduce){.creator{animation:none}}
+
+/* the kraken: the whole page goes dark and shakes */
+body.kraken::after{content:"";position:fixed;inset:0;z-index:40;pointer-events:none;background:radial-gradient(circle at 50% 40%, rgba(0,0,0,.55), rgba(0,0,0,.92));animation:krakenfade .8s ease-out both}
+body.kraken:not(.fs) .cabinet{position:relative;z-index:41;animation:quake .35s infinite}
+body.kraken.fs .cabinet{z-index:45}
+@keyframes krakenfade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){ body.kraken:not(.fs) .cabinet{animation:none} }
+
+/* leaderboard + records */
+.lbgrid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+@media (max-width:820px){.lbgrid{grid-template-columns:minmax(0,1fr)}}
+.lb-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.lb{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;counter-reset:none}
+.lb li{display:grid;grid-template-columns:30px 72px minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 10px;border-radius:10px;background:#1a1e28;border:1px solid #2e3646}
+.lb li.me{border-color:var(--sand);background:#2a3446}
+.lb .rk{font-family:var(--display);font-size:18px;color:var(--muted);text-align:center}
+.lb li:nth-child(1) .rk{color:#ffd34d} .lb li:nth-child(2) .rk{color:#d6dbe6} .lb li:nth-child(3) .rk{color:#e09a5a}
+.lb canvas{width:72px;height:40px}
+.lb .who2{display:flex;flex-direction:column;min-width:0}
+.lb .car{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb .sc{font-family:var(--display);font-size:17px;font-variant-numeric:tabular-nums}
+.lb .empty{display:block;color:var(--muted);text-align:center;padding:18px}
+.lb-you{font-size:14px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lb-you b{color:var(--ink)}
+.best-big{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:12px;background:#1a1e28;border:1px solid var(--line)}
+.best-big b{font-family:var(--display);font-size:clamp(34px,6vw,48px);color:var(--faience);line-height:1.1;font-variant-numeric:tabular-nums}
+.recs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
+.recs div{padding:10px 12px;border-radius:10px;background:#1a1e28;border:1px solid #2e3646}
+.recs dt{font-size:12px;color:var(--muted)} .recs dd{margin:0;font-family:var(--display);font-size:20px;font-variant-numeric:tabular-nums}
+.namebox{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.namebox input{width:11em}
+.acct.signed{grid-template-columns:minmax(0,1fr)}
+
+/* cabinet */
+.cabinet{background:linear-gradient(#2a2e38,#14161c);border:2px solid var(--line);border-radius:14px;padding:10px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.screen{position:relative;border-radius:8px;overflow:hidden;background:#0c0d24}
+canvas#game{display:block;width:100%;height:auto;aspect-ratio:5/4;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.controls{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 4px 2px}
+.keys{color:var(--muted);font-size:13px}
+kbd{font-family:var(--display);background:var(--night);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:0 6px;color:var(--ink);font-size:12px}
+.runner-now{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+.runner-now canvas{width:56px;height:32px}
+.runner-now b{color:var(--ink);font-weight:700}
+
+/* panels */
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:22px}
+@media (max-width:820px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--night-2);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel h2{font-size:21px;color:var(--sand)}
+.sub{color:var(--muted);font-size:14px;margin:0}
+.btn{border:0;border-radius:10px;padding:11px 18px;font-family:var(--display);font-size:16px;font-weight:600;background:var(--sand);color:#2a1006;border-bottom:4px solid var(--sand-deep)}
+.btn:hover{filter:brightness(1.06)}
+.btn:active{transform:translateY(2px);border-bottom-width:2px}
+.btn[disabled]{background:#3a4456;color:#8a94a8;border-bottom-color:#2a3242;cursor:not-allowed;filter:none;transform:none}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);border-bottom:3px solid var(--line)}
+.btn.small{padding:7px 12px;font-size:14px}
+
+/* chest */
+.chest-stage{position:relative;display:grid;place-items:center;min-height:210px;border-radius:12px;background:radial-gradient(circle at 50% 70%, #3a2a24 0, #14161e 70%);overflow:hidden}
+.chest-stage canvas{width:150px;height:150px}
+.chest-stage.shake canvas#chestCv{animation:shake .14s linear infinite}
+@keyframes shake{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-3px,1px) rotate(-3deg)}50%{transform:translate(2px,-1px) rotate(2deg)}75%{transform:translate(-1px,2px) rotate(-1deg)}100%{transform:translate(0,0)}}
+.tag{display:inline-block;font-family:var(--display);font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:2px 9px;border-radius:999px;border:1px solid currentColor}
+.chest-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.progress{height:10px;border-radius:99px;background:#121334;border:1px solid var(--line);overflow:hidden}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,#f2b33d,#ffe08a);width:0;transition:width .3s}
+
+/* odds table */
+.odds{width:100%;border-collapse:collapse;font-size:13.5px;font-variant-numeric:tabular-nums}
+.odds th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:0 6px 6px;border-bottom:1px solid var(--line)}
+.odds td{padding:6px;border-bottom:1px solid #2e3646}
+.odds td:first-child{font-family:var(--display);font-size:15px}
+.odds tr:last-child td{border-bottom:0}
+.tablewrap{overflow-x:auto}
+
+/* collection */
+.coll-head{display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:4px 11px;font-size:13px}
+.filters button[aria-pressed="true"]{background:var(--panel);color:var(--ink);border-color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+.card{position:relative;background:#1a1e28;border:1px solid var(--line);border-top:3px solid var(--rc);border-radius:10px;padding:8px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink);text-align:center;min-width:0}
+.card canvas{width:100%;max-width:92px;height:auto;aspect-ratio:168/96}
+.card .cn{font-size:12px;line-height:1.2;font-weight:700;min-height:2.4em;display:flex;align-items:center}
+.card .cr{font-family:var(--display);font-size:11px;color:var(--rc);letter-spacing:.06em;text-transform:uppercase}
+.card.locked .cn{color:#6a7488}
+.card.sel{outline:2px solid var(--sand);outline-offset:1px;background:#2a3040}
+.card .cnt{position:absolute;top:4px;right:6px;font-family:var(--display);font-size:11px;color:var(--muted)}
+.card .num{position:absolute;top:4px;left:6px;font-family:var(--display);font-size:10px;color:#5a6478}
+button.card:hover:not(.locked){background:#262c3a}
+button.card.locked{cursor:default}
+
+/* save ledger */
+.save-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.box{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;background:#181a40;min-width:0}
+.box h3{font-size:16px;color:var(--ink)}
+.status{display:flex;align-items:center;gap:8px;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.dot.ok{background:var(--r-uncommon)} .dot.local{background:var(--sand)} .dot.err{background:var(--danger)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text],input[type=email],input[type=password],select,textarea{background:#101133;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px;min-width:0}
+textarea{width:100%;resize:vertical;min-height:64px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.row input[type=text]{flex:1}
+.msg{font-size:13px;color:var(--muted);min-height:1.2em;margin:0}
+.who{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.who img{width:32px;height:32px;border-radius:50%}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--danger)}
+
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%) translateY(20px);background:var(--panel);border:1px solid var(--sand);color:var(--ink);padding:10px 16px;border-radius:10px;font-family:var(--display);opacity:0;transition:.25s;pointer-events:none;z-index:20;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion: reduce){.chest-stage.shake canvas#chestCv{animation:none}.toast,.progress i{transition:none}}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* ===== PASTE YOUR FIREBASE SETTINGS HERE (Firebase console > Project settings > Your apps) ===== */
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC51bS7c1dGrUAZ22-dPEvdc-GIlVE3578",
+  authDomain: "relic-runner-5ab77.firebaseapp.com",
+  projectId: "relic-runner-5ab77",
+  storageBucket: "relic-runner-5ab77.firebasestorage.app",
+  messagingSenderId: "583088901590",
+  appId: "1:583088901590:web:936fb95ef9c7ac2c5ae877"
+};
+</script>
+</head><body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1 id="brandTitle">Traffic Runner</h1><span>Six lanes · no brakes</span></div>
+    <div class="purse">
+      <div class="chip" title="Coins to spend"><span class="coin-ic"></span><span id="hudCoins">0</span><small>coins</small></div>
+      <div class="chip" title="Cars unlocked"><span id="hudOwned">1</span><small id="hudTotal">/ 61 cars</small></div>
+      <div class="chip" title="Best run"><small>Best</small><span id="hudBest">0 m</span></div>
+    </div>
+  </header>
+
+  <div class="test-bar" id="testBar" hidden><b>Test drive mode</b><span>Every car is unlocked to try. Coins, chests, best scores and the leaderboard are paused.</span><button class="btn small" id="testOff" type="button">Exit test mode</button></div>
+  <section class="acct" id="acct" aria-labelledby="acctH">
+    <div class="acct-copy">
+      <h2 id="acctH">Save your garage</h2>
+      <p id="acctLead">Sign up free to save your progress, keep your coins and save your cars. Then play on any device.</p>
+      <div class="status"><span class="dot" id="saveDot"></span><span id="saveText">Checking for your account…</span></div>
+    </div>
+    <form id="authBox" class="acct-form" hidden novalidate>
+      <div class="tabs" role="group" aria-label="Sign up or log in">
+        <button type="button" id="tabSignup" aria-pressed="true">Sign up</button>
+        <button type="button" id="tabLogin" aria-pressed="false">Log in</button>
+      </div>
+      <input type="email" id="authEmail" placeholder="Email" autocomplete="email" aria-label="Email">
+      <input type="password" id="authPass" placeholder="Password (6 or more characters)" autocomplete="new-password" aria-label="Password">
+      <button class="btn big" id="authSubmit" type="submit">Create my free account</button>
+      <div class="row"><button class="btn ghost small" id="authGoogle" type="button">Continue with Google</button><button class="btn ghost small" id="authReset" type="button" hidden>Forgot password</button></div>
+      <p class="msg" id="authMsg" role="status"></p>
+    </form>
+    <div class="who" id="whoBox" hidden>
+      <div>Logged in as <b id="whoName"></b></div>
+      <form class="namebox" id="nameForm"><label for="nameInput">Leaderboard name</label><input type="text" id="nameInput" maxlength="16" autocomplete="nickname"><button class="btn small" type="submit">Save name</button></form>
+      <button class="btn ghost small" id="logoutBtn" type="button">Log out</button>
+    </div>
+  </section>
+
+  <section class="cabinet" aria-label="Game">
+    <div class="screen"><div class="fs-bar"><button class="fs-exit" id="fsExit" type="button">Exit</button><button class="snd-btn" data-snd="sfx" type="button" aria-pressed="true">Sound: On</button></div><div class="over-cta" id="overCta" hidden>
+      <div class="oc-card">
+        <h3>Crashed! <span id="ocSum"></span></h3>
+        <p>You're not signed in, so your coins and cars are only saved on this device. Sign up to save your progress, keep your cars and get on today's leaderboard.</p>
+        <div class="row oc-btns"><button class="btn big" id="ocSignup" type="button">Sign up to save</button><button class="btn ghost" id="ocLogin" type="button">Log in</button></div>
+        <button class="oc-again" id="ocAgain" type="button">Play again without saving</button>
+      </div>
+    </div><canvas id="game" width="960" height="360" aria-label="Traffic Runner game screen. Move the mouse or swipe to steer through traffic."></canvas></div>
+    <div class="controls">
+      <div class="runner-now"><canvas id="nowCv" width="112" height="64"></canvas><div>Driving <b id="nowName">—</b><br><span id="nowPerk"></span></div></div>
+      <div class="keys">Move the mouse to steer (or <kbd>←</kbd> <kbd>→</kbd>) · <kbd>Space</kbd> start · <kbd>P</kbd> pause</div>
+      <div class="tap-hint">Hold your finger on the game and swipe left and right to steer.</div>
+      <div class="snd"><button class="snd-btn" data-snd="sfx" type="button" aria-pressed="true">Sound: On</button></div>
+    </div>
+  </section>
+
+  <div class="grid2 lbgrid">
+    <section class="panel" aria-labelledby="lbH">
+      <div class="lb-head"><h2 id="lbH">Today's leaderboard</h2><span class="sub" id="lbReset"></span></div>
+      <ol class="lb" id="lbList"></ol>
+      <p class="msg" id="lbMsg"></p>
+      <div class="lb-you" id="lbYou"></div>
+    </section>
+    <section class="panel" aria-labelledby="recH">
+      <h2 id="recH">Your records</h2>
+      <div class="best-big"><span class="sub">All-time best</span><b id="recBest">0 m</b></div>
+      <dl class="recs">
+        <div><dt>Furthest round</dt><dd id="recRound">—</dd></div>
+        <div><dt>Runs played</dt><dd id="recRuns">0</dd></div>
+        <div><dt>Coins earned, all time</dt><dd id="recLife">0</dd></div>
+        <div><dt>Chests opened</dt><dd id="recChests">0</dd></div>
+      </dl>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel" aria-labelledby="chestH">
+      <h2 id="chestH">Garage Chest</h2>
+      <p class="sub">Save up 100 coins and open a chest for a random car. Duplicates pay back coins.</p>
+      <div class="chest-stage" id="chestStage">
+        <canvas id="chestCv" width="300" height="300"></canvas>
+      </div>
+      <div class="progress" aria-hidden="true"><i id="chestBar"></i></div>
+      <div class="chest-row">
+        <button class="btn" id="openChest" type="button">Open chest · 100</button>
+        <span class="sub" id="chestHint"></span>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="oddsH">
+      <h2 id="oddsH">Rarity &amp; drop odds</h2>
+      <p class="sub">Rare and better cars have their own exhaust. Mythic cars drive on their own roads, and Drift King drifts. The Secret car only comes from catching the Golden Car on the highway.</p>
+      <div class="tablewrap">
+        <table class="odds">
+          <thead><tr><th>Rarity</th><th>Cars</th><th>Chest odds</th><th>Dupe refund</th><th>Found</th></tr></thead>
+          <tbody id="oddsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="collH">
+    <div class="coll-head">
+      <div><h2 id="collH">Garage</h2><p class="sub">Tap a car you own to drive it.</p></div>
+      <div class="filters" id="filters" role="group" aria-label="Filter by rarity"></div>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="saveH">
+    <h2 id="saveH">Player &amp; saves</h2>
+    <div class="save-grid">
+      <div class="box">
+        <h3>Play without an account</h3>
+        <div id="localBox">
+          <p class="sub" style="margin-bottom:8px">Profiles saved on this device only. Each one keeps its own coins and cars.</p>
+          <div class="row"><select id="profileSel" aria-label="Choose player"></select><button class="btn ghost small" id="delProfile" type="button">Delete</button></div>
+          <div class="confirm" id="delConfirm" hidden><span id="delText"></span><button class="btn small" id="delYes" type="button">Delete</button><button class="btn ghost small" id="delNo" type="button">Keep</button></div>
+          <div class="row" style="margin-top:8px"><input type="text" id="newProfile" maxlength="20" placeholder="New player name" aria-label="New player name"><button class="btn small" id="addProfile" type="button">Add player</button></div>
+        </div>
+        <p class="msg" id="acctMsg"></p>
+      </div>
+      <div class="box">
+        <h3>Save code</h3>
+        <p class="sub">Copy this code to back up your progress or move it to another device, then paste it there and load it.</p>
+        <textarea id="codeBox" aria-label="Save code" spellcheck="false"></textarea>
+        <div class="row"><button class="btn small" id="copyCode" type="button">Copy my save code</button><button class="btn ghost small" id="loadCode" type="button">Load pasted code</button></div>
+        <div class="confirm" id="loadConfirm" hidden><span>This replaces the current progress.</span><button class="btn small" id="loadYes" type="button">Replace</button><button class="btn ghost small" id="loadNo" type="button">Cancel</button></div>
+        <p class="msg" id="codeMsg"></p>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="rotate" id="rotate" aria-live="polite"><div class="phone" aria-hidden="true"></div><h2>Turn your phone upright</h2><p>Traffic Runner plays upright on phones.</p></div>
+<div class="chest-full" id="chestFull" hidden role="dialog" aria-modal="true" aria-labelledby="cfName">
+  <div class="cf-rays" aria-hidden="true"></div>
+  <canvas class="cf-fx" id="cfFx" aria-hidden="true"></canvas>
+    <div class="cf-inner">
+    <canvas class="cf-char" id="cfChar" width="400" height="400" aria-hidden="true"></canvas>
+    <canvas class="cf-chest" id="cfChest" width="300" height="300" aria-hidden="true"></canvas>
+    <div class="cf-hint" id="cfHint">Opening…</div>
+    <div class="cf-info">
+      <span class="cf-tier" id="cfTier"></span>
+      <div class="cf-name" id="cfName"></div>
+      <div class="cf-note" id="cfNote"></div>
+      <div class="cf-btns"><button class="btn big" id="cfRun" type="button">Drive this car</button><button class="btn ghost" id="cfAgain" type="button">Open another · 100</button><button class="btn ghost" id="cfClose" type="button">Close</button></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+/* ============================== CARS ============================== */
+const TIERS = [
+  {key:"common",    name:"Common",    color:"#b9bcc9", weight:51.5,refund:10},
+  {key:"uncommon",  name:"Uncommon",  color:"#6fd36a", weight:25,  refund:15},
+  {key:"rare",      name:"Rare",      color:"#4aa8ff", weight:14,  refund:25},
+  {key:"epic",      name:"Epic",      color:"#b77bff", weight:6.5, refund:40},
+  {key:"legendary", name:"Legendary", color:"#ffb23f", weight:2,   refund:60},
+  {key:"mythic",    name:"Mythic",    color:"#ff5ea8", weight:1,   refund:100},
+  {key:"secret",    name:"Secret",    color:"#ffd34d", weight:0,   refund:0},
+];
+/* [tier, name, body, main color, accent, extras, exhaust]
+   Bodies: sedan hatch coupe sports muscle pickup van suv jeep taxi police bug f1 hyper
+   Extras: s racing stripes, f flame decal, c checkers, t two-tone roof, w big wing, g glow, n neon underglow, k crown, d drifts, x THE CREATOR (shades + gold trim)
+   Exhaust (rare and up): color spark fire heart star rainbow neon bubble snow bolt gold drift comet ghost */
+const CAR_LIST = [
+  [0, "Family Sedan",      "sedan",  "#2f6ad8", "#c8d8f0", "",   ""],
+  [0, "City Hatchback",    "hatch",  "#d8303a", "#f4f4f8", "",   ""],
+  [0, "Silver Coupe",      "coupe",  "#b8bcc8", "#5a5e6a", "",   ""],
+  [0, "White Pickup",      "pickup", "#f0f0f4", "#5a5e6a", "",   ""],
+  [0, "Delivery Van",      "van",    "#e8e4d8", "#c8402a", "",   ""],
+  [0, "Green SUV",         "suv",    "#3a8a4a", "#c8e0c8", "",   ""],
+  [0, "Yellow Taxi",       "taxi",   "#ffcf2a", "#1c1c22", "",   ""],
+  [0, "Grandpa's Sedan",   "sedan",  "#d8c8a0", "#8a7a5a", "",   ""],
+  [0, "Rusty Pickup",      "pickup", "#a8582a", "#5a3a22", "",   ""],
+  [0, "Mint Hatchback",    "hatch",  "#8ae0c0", "#f4f4f8", "",   ""],
+  [0, "Black SUV",         "suv",    "#22242c", "#8a8e9a", "",   ""],
+  [0, "Orange Jeep",       "jeep",   "#ff8a2a", "#1c1c22", "",   ""],
+  [0, "Ice Cream Van",     "van",    "#f8f4f8", "#ff8ac2", "t",  ""],
+  [0, "Sky Blue Bug",      "bug",    "#7ac0f0", "#f4f4f8", "",   ""],
+  [0, "Maroon Coupe",      "coupe",  "#7a1a2a", "#c8a0a8", "",   ""],
+  [0, "Forest Jeep",       "jeep",   "#3a5a32", "#c8b88a", "",   ""],
+  [0, "Commuter Sedan",    "sedan",  "#7a7e8a", "#c8ccd8", "",   ""],
+  [0, "Lemon Hatchback",   "hatch",  "#f0e050", "#5a5a22", "",   ""],
+  [0, "Mail Van",          "van",    "#f4f4f8", "#2f5bd1", "s",  ""],
+  [1, "Police Cruiser",    "police", "#1c1c22", "#f4f4f8", "",   ""],
+  [1, "Sport Coupe",       "coupe",  "#e0263a", "#f4f4f8", "s",  ""],
+  [1, "Muscle Car",        "muscle", "#ff8a2a", "#1c1c22", "s",  ""],
+  [1, "Off-Road Jeep",     "jeep",   "#c8a040", "#3a2a1a", "",   ""],
+  [1, "Retro Bug",         "bug",    "#e8603a", "#f4f0e0", "t",  ""],
+  [1, "Lifted Pickup",     "pickup", "#2f5bd1", "#1c1c22", "s",  ""],
+  [1, "Rally Hatch",       "hatch",  "#f4f4f8", "#1c1c22", "c",  ""],
+  [1, "Night Taxi",        "taxi",   "#1c1c22", "#ffcf2a", "",   ""],
+  [1, "Purple Coupe",      "coupe",  "#6a3ab0", "#e8d8ff", "",   ""],
+  [1, "Camper Van",        "van",    "#2a8a8a", "#f4f0e0", "t",  ""],
+  [1, "Teal Sports",       "sports", "#2ab8b8", "#1c1c22", "",   ""],
+  [1, "Classic Muscle",    "muscle", "#1c1c22", "#ffd34d", "s",  ""],
+  [1, "Desert SUV",        "suv",    "#d8b878", "#5a4a2a", "",   ""],
+  [1, "Pink Bug",          "bug",    "#ff8ac2", "#f4f4f8", "",   ""],
+  [1, "Street Racer",      "sports", "#f4f4f8", "#e0263a", "sw", ""],
+  [2, "Blue Lightning",    "sports", "#2f5bd1", "#ffd34d", "s",  "bolt"],
+  [2, "Cherry Bomb",       "muscle", "#c8102a", "#f4f4f8", "s",  "color"],
+  [2, "Emerald Racer",     "sports", "#1a9a5a", "#c8ffd8", "w",  "color"],
+  [2, "Snow Patrol",       "suv",    "#f4f8ff", "#2a8ad8", "",   "snow"],
+  [2, "Bubble Bug",        "bug",    "#2de2e6", "#f4f4f8", "",   "bubble"],
+  [2, "Sunset Coupe",      "coupe",  "#ff8a5a", "#ff4fa3", "t",  "color"],
+  [2, "Midnight Muscle",   "muscle", "#1a1430", "#b77bff", "s",  "color"],
+  [2, "Lime Rocket",       "hyper",  "#a8ff3a", "#1c1c22", "",   "spark"],
+  [2, "Ocean Cruiser",     "van",    "#1a6aa8", "#7fd7ff", "s",  "bubble"],
+  [2, "Heartbreaker",      "coupe",  "#ff4fa3", "#f4f4f8", "",   "heart"],
+  [2, "Thunder Truck",     "pickup", "#2a2a5a", "#ffd34d", "f",  "bolt"],
+  [2, "Toxic Racer",       "sports", "#3ad83a", "#1c1c22", "n",  "neon"],
+  [3, "Inferno GT",        "sports", "#c8201a", "#ffb23f", "fw", "fire"],
+  [3, "Starlight",         "hyper",  "#2a1a5a", "#ffd34d", "n",  "star"],
+  [3, "Neon Viper",        "sports", "#14102a", "#ff4fa3", "nw", "neon"],
+  [3, "Ghost Rider",       "muscle", "#e8ecf4", "#9aa2b4", "g",  "ghost"],
+  [3, "Rainbow Racer",     "hyper",  "#f4f4f8", "#ff4fa3", "c",  "rainbow"],
+  [3, "Formula Flash",     "f1",     "#e0263a", "#f4f4f8", "",   "spark"],
+  [3, "Royal Coupe",       "coupe",  "#4a1a7a", "#ffd34d", "k",  "star"],
+  [4, "Phoenix",           "hyper",  "#e0261a", "#ffd34d", "fn", "fire"],
+  [4, "Aurora",            "hyper",  "#1a3a5a", "#7dffe0", "n",  "rainbow"],
+  [4, "Diamond GT",        "sports", "#e8f4ff", "#7fd7ff", "gw", "spark"],
+  [4, "Thunderstrike",     "muscle", "#2f5bd1", "#ffd34d", "sn", "bolt"],
+  [5, "Drift King",        "sports", "#1c1c22", "#ff4fa3", "dnw","drift"],
+  [5, "Comet",             "hyper",  "#f4f8ff", "#2de2e6", "n",  "comet"],
+  [5, "THE CREATOR",       "hyper",  "#2f5bd1", "#ffd34d", "xkn","gold"],
+  [6, "Golden Car",        "sports", "#ffc83a", "#fff3b0", "gw", "gold"],
+];
+const CHARS = CAR_LIST.map(([tier, name, body, main, accent, ex, smoke], id) => ({id, tier, name, body, main, accent, ex, smoke}));
+const GOLD_ID = CHARS.find(c => c.tier === 6).id;
+const SORTED = [...CHARS].sort((a, b) => a.tier - b.tier || a.id - b.id);
+const DISPLAY_NO = {}; SORTED.forEach((c, i) => DISPLAY_NO[c.id] = i + 1);
+const carNo = c => "#" + String(DISPLAY_NO[c.id]).padStart(3, "0");
+const isCreator = c => c.name === "THE CREATOR";
+const tierCounts = TIERS.map((_, i) => CHARS.filter(c => c.tier === i).length);
+const SMOKE_NAME = {"":"Gray exhaust", color:"Colored smoke", spark:"Sparks", fire:"Flames", heart:"Hearts", star:"Stars", rainbow:"Rainbow trail", neon:"Neon trail", bubble:"Bubbles", snow:"Snowflakes", bolt:"Lightning", gold:"Gold dust", drift:"Drift smoke", comet:"Comet tail", ghost:"Ghost mist"};
+// the Mythic and Secret cars drive on their own roads
+const THEMES = {"Drift King":{world:"Neon Expressway"}, "Comet":{world:"Space Highway"}, "THE CREATOR":{world:"Golden Skyway"}, "Golden Car":{world:"Gold Rush Road"}};
+const themeFor = c => THEMES[c.name] || null;
+
+function hexRGB(h){h=h.replace("#","");return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]}
+const shadeCache = {};
+function shade(hex, amt){
+  const k = hex + amt; if (shadeCache[k]) return shadeCache[k];
+  let [r,g,b] = hexRGB(hex);
+  if (amt < 0){r*=1+amt;g*=1+amt;b*=1+amt} else {r+=(255-r)*amt;g+=(255-g)*amt;b+=(255-b)*amt}
+  return shadeCache[k] = `rgb(${r|0},${g|0},${b|0})`;
+}
+function lum(hex){ const [r,g,b] = hexRGB(hex); return (r*.3 + g*.59 + b*.11)/255; }
+const rgba = (hex, a) => { const [r, g, b] = hexRGB(hex); return `rgba(${r},${g},${b},${a})`; };
+
+/* ---------- a car seen from above, pointing up, centered on (0,0). Sizes are in car units (about 30 wide, 56 long). ---------- */
+const BODY = {
+  sedan:{w:28, l:56, ws:[13, 21], roof:[21, 38], rw:[38, 44]},
+  taxi:{w:28, l:56, ws:[13, 21], roof:[21, 38], rw:[38, 44]},
+  police:{w:28, l:56, ws:[13, 21], roof:[21, 38], rw:[38, 44]},
+  hatch:{w:27, l:47, ws:[11, 18], roof:[18, 37], rw:[37, 42]},
+  coupe:{w:28, l:54, ws:[15, 24], roof:[24, 35], rw:[35, 42]},
+  sports:{w:30, l:56, ws:[18, 27], roof:[27, 36], rw:null},
+  muscle:{w:30, l:58, ws:[21, 29], roof:[29, 40], rw:[40, 46]},
+  pickup:{w:30, l:60, ws:[13, 20], roof:[20, 31], rw:null, bed:[33, 57]},
+  van:{w:30, l:60, ws:[5, 12], roof:[12, 57], rw:null},
+  suv:{w:31, l:58, ws:[12, 19], roof:[19, 48], rw:[48, 53]},
+  jeep:{w:30, l:50, ws:[12, 16], roof:[16, 40], rw:null, open:true},
+  bug:{w:28, l:46, ws:[12, 19], roof:[19, 32], rw:[32, 37], round:true},
+  f1:{w:30, l:58, f1:true},
+  hyper:{w:32, l:58, ws:[20, 28], roof:[28, 36], rw:null},
+};
+function paintCar(c, car, opt){
+  opt = opt || {}; const b = BODY[car.body] || BODY.sedan, ex = car.ex || "", sil = !!opt.sil;
+  const M = sil ? "#08080e" : car.main, A = sil ? "#08080e" : car.accent, W2 = b.w/2, L2 = b.l/2;
+  const R = (x, y, w, h, col, r) => { c.fillStyle = col; c.beginPath(); c.roundRect(x, y, w, h, r || 0); c.fill(); };
+  // shadow, glow and underglow
+  if (!sil){ c.fillStyle = "rgba(0,0,0,.3)"; c.beginPath(); c.roundRect(-W2 + 2, -L2 + 4, b.w, b.l, 6); c.fill();
+    if (ex.includes("n") || ex.includes("g") || opt.glow){ const gc = ex.includes("n") ? A : (opt.glowCol || TIERS[Math.min(car.tier || 0, 6)].color); const g = c.createRadialGradient(0, 0, 6, 0, 0, b.l*.75); g.addColorStop(0, rgba(gc, .45)); g.addColorStop(1, rgba(gc, 0)); c.fillStyle = g; c.fillRect(-b.l, -b.l, b.l*2, b.l*2); } }
+  // wheels
+  const wheel = (x, y) => R(x - 3, y - 5, 6, 10, sil ? "#08080e" : "#111116", 2);
+  if (b.f1){
+    [[-13, -16], [13, -16], [-13, 17], [13, 17]].forEach(([x, y]) => R(x - 4, y - 6, 8, 12, sil ? "#08080e" : "#111116", 2));
+    R(-15, -29, 30, 5, A, 2); R(-15, 24, 30, 6, A, 2);                                  // wings
+    R(-6, -26, 12, 52, M, 6); R(-9, -4, 18, 22, M, 5);                                  // nose and sidepods
+    R(-3, -2, 6, 8, sil ? "#08080e" : "#14141a", 3); if (!sil){ R(-2, -1, 4, 2, "#f4d23a", 1); R(-1, -22, 2, 18, A, 1); }
+    return;
+  }
+  [[-W2 + 1, -L2 + 11], [W2 - 1, -L2 + 11], [-W2 + 1, L2 - 11], [W2 - 1, L2 - 11]].forEach(([x, y]) => wheel(x, y));
+  // body
+  c.fillStyle = M; c.beginPath();
+  if (b.round) c.ellipse(0, 0, W2, L2, 0, 0, Math.PI*2); else c.roundRect(-W2, -L2, b.w, b.l, car.body === "sports" || car.body === "hyper" ? [10, 10, 6, 6] : 6);
+  c.fill();
+  if (sil) return;
+  c.strokeStyle = shade(M, -.35); c.lineWidth = 1; c.stroke();
+  if (car.body === "hyper"){ c.fillStyle = shade(M, -.25); c.beginPath(); c.moveTo(-W2, 6); c.lineTo(-W2 + 5, 0); c.lineTo(-W2 + 5, 14); c.fill(); c.beginPath(); c.moveTo(W2, 6); c.lineTo(W2 - 5, 0); c.lineTo(W2 - 5, 14); c.fill(); }
+  // paint details
+  if (ex.includes("s")){ R(-5, -L2 + 1, 4, b.l - 2, A); R(1, -L2 + 1, 4, b.l - 2, A); }
+  if (ex.includes("c")){ for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) if ((i + j) % 2) R(-W2 + 4 + i*((b.w - 8)/4), -L2 + 3 + j*4, (b.w - 8)/4, 4, A); }
+  if (ex.includes("f")){ c.fillStyle = A; c.beginPath(); c.moveTo(-W2 + 2, -L2 + 18); c.quadraticCurveTo(-W2 + 8, -L2 + 8, -W2 + 4, -L2 + 4); c.quadraticCurveTo(-W2 + 12, -L2 + 10, -W2 + 10, -L2 + 18); c.closePath(); c.fill(); c.beginPath(); c.moveTo(W2 - 2, -L2 + 18); c.quadraticCurveTo(W2 - 8, -L2 + 8, W2 - 4, -L2 + 4); c.quadraticCurveTo(W2 - 12, -L2 + 10, W2 - 10, -L2 + 18); c.closePath(); c.fill(); }
+  if (ex.includes("x")){ R(-W2 + 1, -L2 + 2, 3, b.l - 4, A); R(W2 - 4, -L2 + 2, 3, b.l - 4, A); }
+  // headlights and taillights
+  R(-W2 + 3, -L2 + 1, 6, 3, "#fff6c8", 1); R(W2 - 9, -L2 + 1, 6, 3, "#fff6c8", 1);
+  R(-W2 + 3, L2 - 3, 6, 2, "#e0263a", 1); R(W2 - 9, L2 - 3, 6, 2, "#e0263a", 1);
+  // glass and roof
+  const GL = "#1c2a3e", GL2 = "#3a5070";
+  if (b.ws){ c.fillStyle = GL; c.beginPath(); c.moveTo(-W2 + 4, -L2 + b.ws[1]); c.lineTo(-W2 + 6, -L2 + b.ws[0]); c.lineTo(W2 - 6, -L2 + b.ws[0]); c.lineTo(W2 - 4, -L2 + b.ws[1]); c.closePath(); c.fill();
+    c.fillStyle = GL2; c.fillRect(-W2 + 8, -L2 + b.ws[0] + 1, 4, 2); }
+  if (b.roof && !b.open) R(-W2 + 4, -L2 + b.roof[0], b.w - 8, b.roof[1] - b.roof[0], ex.includes("t") ? A : shade(M, .12), 3);
+  if (b.open){ R(-W2 + 4, -L2 + b.roof[0], b.w - 8, b.roof[1] - b.roof[0], "#2a2a30", 2); R(-W2 + 6, -L2 + b.roof[0] + 3, 7, 8, "#5a4a3a", 2); R(W2 - 13, -L2 + b.roof[0] + 3, 7, 8, "#5a4a3a", 2); R(-W2 + 3, -L2 + b.roof[0] - 1, b.w - 6, 2, A); R(-4, L2 - 2, 8, 5, "#111116", 3); }
+  if (b.rw) R(-W2 + 5, -L2 + b.rw[0], b.w - 10, b.rw[1] - b.rw[0], GL, 2);
+  if (b.bed){ R(-W2 + 3, -L2 + b.bed[0], b.w - 6, b.bed[1] - b.bed[0], shade(M, -.3), 2); for (let i = 1; i < 4; i++) R(-W2 + 4, -L2 + b.bed[0] + i*6, b.w - 8, 1, shade(M, -.45)); }
+  if (car.body === "van") R(-6, -L2 + 26, 12, 14, shade(M, -.08), 2);
+  if (car.body === "suv"){ R(-W2 + 5, -L2 + 22, 2, 22, "#3a3a44"); R(W2 - 7, -L2 + 22, 2, 22, "#3a3a44"); }
+  if (car.body === "taxi"){ R(-6, -L2 + 26, 12, 5, "#f4f4f8", 2); R(-4, -L2 + 27, 8, 3, "#1c1c22", 1); }
+  if (car.body === "police"){ R(-9, -L2 + 26, 9, 4, "#e0263a", 1); R(0, -L2 + 26, 9, 4, "#2f5bd1", 1); R(-W2 + 1, -L2 + 18, 2, 22, A); R(W2 - 3, -L2 + 18, 2, 22, A); }
+  if (ex.includes("w") || car.body === "sports" && ex.includes("w")){ R(-W2 - 1, L2 - 6, b.w + 2, 4, shade(A, -.1), 2); R(-W2 + 4, L2 - 8, 2, 4, "#2a2a30"); R(W2 - 6, L2 - 8, 2, 4, "#2a2a30"); }
+  if (ex.includes("k")){ const y = -L2 + (b.roof ? (b.roof[0] + b.roof[1])/2 : 30); c.fillStyle = "#ffd34d"; c.beginPath(); c.moveTo(-7, y + 3); c.lineTo(-7, y - 3); c.lineTo(-3.5, y); c.lineTo(0, y - 5); c.lineTo(3.5, y); c.lineTo(7, y - 3); c.lineTo(7, y + 3); c.closePath(); c.fill(); }
+  if (ex.includes("x") && b.ws){ R(-W2 + 7, -L2 + b.ws[0] + 3, 6, 3, "#05070c", 1); R(W2 - 13, -L2 + b.ws[0] + 3, 6, 3, "#05070c", 1); R(-1, -L2 + b.ws[0] + 3, 2, 1, "#05070c"); }
+}
+// a car on a card or preview, lying sideways (pointing right). (x, y) is the bottom middle of the picture.
+function drawChar(ctx, c, o){
+  const k = (o.s || 4.4)/4.4, s = k*1.9, t = o.t || 0;
+  ctx.save(); ctx.translate(o.x, o.y - 38*k); ctx.rotate(Math.PI/2); ctx.scale(s, s);
+  paintCar(ctx, c, {sil: !!o.sil, glow: (c.tier >= 3 && o.glow !== false)});
+  ctx.restore();
+}
+
+/* ============================== STATE & SAVES ============================== */
+const newState = () => ({v:1, name:"", coins:0, lifetimeCoins:0, best:0, bestRound:0, runs:0, chests:0, owned:{"0":1}, selected:0, updatedAt:0});
+function cleanName(n){ return typeof n === "string" ? n.replace(/[^A-Za-z0-9 _.\-']/g,"").replace(/\s+/g," ").trim().slice(0,16) : ""; }
+function sanitize(s){
+  const d = newState(); if (!s || typeof s !== "object") return d;
+  const num = (v, def) => (Number.isFinite(+v) && +v >= 0) ? Math.floor(+v) : def;
+  d.coins = num(s.coins,0); d.lifetimeCoins = num(s.lifetimeCoins,d.coins); d.best = num(s.best,0); d.bestRound = num(s.bestRound,0);
+  d.name = cleanName(s.name);
+  d.runs = num(s.runs,0); d.chests = num(s.chests,0); d.updatedAt = num(s.updatedAt,0);
+  d.owned = {};
+  if (s.owned && typeof s.owned === "object") for (const k in s.owned){ const i = +k; if (Number.isInteger(i) && i>=0 && i<CHARS.length && num(s.owned[k],0)>0) d.owned[i] = num(s.owned[k],1); }
+  if (!Object.keys(d.owned).length) d.owned = {"0":1};
+  d.selected = d.owned[s.selected] ? +s.selected : +Object.keys(d.owned)[0];
+  return d;
+}
+let state = newState();
+
+const LS = {
+  get(k){ try { return localStorage.getItem(k); } catch { return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); return true; } catch { return false; } },
+  del(k){ try { localStorage.removeItem(k); } catch {} },
+};
+const PREFIX = "trafficrunner:";
+const Saves = {
+  mode: "local",       // "local" | "fire"
+  db: null, uid: null, profile: "Player 1",
+  writing: false, dirty: false, timer: null, lastError: null,
+  profiles(){ try { const p = JSON.parse(LS.get(PREFIX+"profiles")||"null"); if (Array.isArray(p) && p.length) return p.filter(x=>typeof x==="string"); } catch {} return ["Player 1"]; },
+  setProfiles(list){ LS.set(PREFIX+"profiles", JSON.stringify(list)); },
+  loadLocal(name){ try { return sanitize(JSON.parse(LS.get(PREFIX+"save:"+name)||"null")); } catch { return newState(); } },
+  saveLocal(){ return LS.set(PREFIX+"save:"+this.profile, JSON.stringify(state)); },
+  
+  save(now){
+    state.updatedAt = Date.now();
+    const okLocal = this.mode === "local" ? this.saveLocal() : true;
+    if (this.mode === "local"){ setSaveStatus(okLocal ? "local" : "err"); renderCode(); return; }
+    this.dirty = true;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.flush(), now ? 0 : 700);
+  },
+  async flush(){
+    if (this.writing || !this.dirty || this.mode !== "fire") return;
+    this.writing = true; this.dirty = false; setSaveStatus("saving");
+    const uid = this.uid;
+    try { await this.fs.collection("trafficgarage").doc(uid).set(JSON.parse(JSON.stringify(state))); if (this.uid === uid) setSaveStatus("ok"); }
+    catch (e) {
+      if (e && (e.code === "unavailable" || e.code === "deadline-exceeded")){ this.dirty = true; setTimeout(()=>this.flush(), 1500 + Math.random()*1000); setSaveStatus("saving"); }
+      else { this.mode = "local"; this.saveLocal(); setSaveStatus("fallback"); renderAccount(); }
+    }
+    this.writing = false;
+    if (this.dirty) this.flush();
+    renderCode();
+  },
+};
+
+function encodeSave(s){ const j = JSON.stringify({name:s.name,coins:s.coins,lifetimeCoins:s.lifetimeCoins,best:s.best,bestRound:s.bestRound,runs:s.runs,chests:s.chests,owned:s.owned,selected:s.selected});
+  return "TR1-" + btoa(unescape(encodeURIComponent(j))); }
+function decodeSave(code){
+  code = (code||"").trim().replace(/\s+/g,"");
+  if (!code.startsWith("TR1-")) throw new Error("That doesn't look like a Traffic Runner save code. Codes start with TR1-.");
+  let obj; try { obj = JSON.parse(decodeURIComponent(escape(atob(code.slice(4))))); } catch { throw new Error("The code is incomplete or was changed. Copy the whole code and try again."); }
+  return sanitize(obj);
+}
+
+/* ============================== UI HELPERS ============================== */
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("en-US");
+let toastT;
+function toast(msg){ const el=$("toast"); el.textContent=msg; el.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"),2200); }
+function setupCanvas(cv){ const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false; return ctx; }
+function ownedCount(){ return Object.keys(state.owned).length; }
+function tierFound(i){ return CHARS.filter(c=>c.tier===i && state.owned[c.id]).length; }
+function pct(w){ return (w % 1 ? w.toFixed(1) : w) + "%"; }
+
+function setSaveStatus(kind){
+  const dot=$("saveDot"), txt=$("saveText");
+  dot.className = "dot";
+  if (kind === "ok"){ dot.classList.add("ok"); txt.textContent = "Saved to your account"; }
+  else if (kind === "saving"){ dot.classList.add("ok"); txt.textContent = "Saving to your account…"; }
+  else if (kind === "local"){ dot.classList.add("local"); txt.textContent = "Saved on this device as " + Saves.profile; }
+  else if (kind === "fallback"){ dot.classList.add("local"); txt.textContent = "Couldn't save to your account, so progress saves on this device as " + Saves.profile; }
+  else if (kind === "nosetup"){ dot.classList.add("local"); txt.textContent = "Accounts aren't set up on this site yet. Progress saves on this device as " + Saves.profile; }
+  else if (kind === "err"){ dot.classList.add("err"); txt.textContent = "This browser is blocking saves. Use your save code to keep progress."; }
+}
+
+function renderHUD(){
+  $("hudCoins").textContent = fmt(state.coins);
+  $("hudOwned").textContent = ownedCount();
+  $("hudTotal").textContent = "/ " + CHARS.length + " cars";
+  $("hudBest").textContent = fmt(state.best) + " m";
+  $("recBest").textContent = fmt(state.best) + " m";
+  $("recRound").textContent = state.bestRound ? "Round " + state.bestRound : "—";
+  $("recRuns").textContent = fmt(state.runs);
+  $("recLife").textContent = fmt(state.lifetimeCoins);
+  $("recChests").textContent = fmt(state.chests);
+  const c = curCar();
+  $("nowName").textContent = c.name; $("nowName").classList.toggle("creator", isCreator(c));
+  $("nowName").style.color = TIERS[c.tier].color;
+  $("nowPerk").textContent = TIERS[c.tier].name + " · " + (c.ex.includes("d") ? "Drifts · " : "") + SMOKE_NAME[c.smoke || ""] + (themeFor(c) ? " · " + themeFor(c).world : "");
+  $("chestBar").style.width = Math.min(100, state.coins) + "%";
+  const can = state.coins >= 100 && !chestBusy;
+  $("openChest").disabled = !can;
+  $("chestHint").textContent = state.coins >= 100 ? (Math.floor(state.coins/100) + " chest" + (state.coins>=200?"s":"") + " ready") : (100 - state.coins) + " more coins to go";
+}
+function renderOdds(){
+  $("oddsBody").innerHTML = TIERS.map((t,i)=>`<tr><td style="color:${t.color}">${t.name}</td><td>${tierCounts[i]}</td><td>${pct(t.weight)}</td><td>+${t.refund}</td><td>${tierFound(i)} / ${tierCounts[i]}</td></tr>`).join("");
+}
+let filter = -1;
+function renderFilters(){
+  const opts = [{i:-1,name:"All"}].concat(TIERS.map((t,i)=>({i,name:t.name})));
+  $("filters").innerHTML = opts.map(o=>`<button type="button" data-f="${o.i}" aria-pressed="${filter===o.i}" ${o.i>=0?`style="color:${TIERS[o.i].color}"`:""}>${o.name}${o.i>=0?` ${tierFound(o.i)}/${tierCounts[o.i]}`:` ${ownedCount()}/${CHARS.length}`}</button>`).join("");
+}
+const cardCanvases = [];
+function renderCards(){
+  const box = $("cards"); box.textContent = "";
+  cardCanvases.length = 0;
+  SORTED.forEach(c => {
+    if (filter >= 0 && c.tier !== filter) return;
+    const own = TEST.on || !!state.owned[c.id], t = TIERS[c.tier];
+    const b = document.createElement("button"); b.type = "button";
+    b.className = "card" + (own ? "" : " locked") + ((TEST.on ? TEST.car : state.selected) === c.id ? " sel" : "");
+    b.style.setProperty("--rc", t.color);
+    b.setAttribute("aria-label", own ? `${c.name}, ${t.name}${state.selected===c.id?", driving now":""}` : (c.tier === 6 ? "Secret car: catch the Golden Car on the highway" : `Locked ${t.name} car`));
+    const cv = document.createElement("canvas"); cv.width = 168; cv.height = 96;
+    const num = document.createElement("span"); num.className = "num"; num.textContent = carNo(c);
+    const nm = document.createElement("span"); nm.className = "cn"; nm.textContent = own ? c.name : "???"; if (own && isCreator(c)) nm.classList.add("creator");
+    const rr = document.createElement("span"); rr.className = "cr"; rr.textContent = c.tier === 6 && !own ? "Catch it on the road" : t.name;
+    b.append(num, cv, nm, rr);
+    if (own && state.owned[c.id] > 1){ const n = document.createElement("span"); n.className="cnt"; n.textContent = "×" + state.owned[c.id]; b.append(n); }
+    if (own) b.addEventListener("click", () => selectChar(c.id));
+    box.append(b);
+    const ctx = setupCanvas(cv);
+    drawChar(ctx, c, {x:84, y:84, s:4.4, t:0, sil:!own});
+    if (c.tier >= 4 && own) cardCanvases.push({ctx, c});
+  });
+}
+function renderNow(){ const cv=$("nowCv"), ctx=setupCanvas(cv); ctx.clearRect(0,0,112,64); drawChar(ctx, curCar(), {x:56,y:56,s:2.9,t:performance.now()/1000}); }
+function renderAll(){ renderHUD(); renderOdds(); renderFilters(); renderCards(); renderNow(); renderAccount(); renderCode(); }
+
+/* ---------- Test Run mode (secret) ----------
+   Tap the "Traffic Runner" title 7 times fast, or type "testcar" on a keyboard.
+   Lets you drive any car. Nothing in test mode touches real progress: no coins, no chests,
+   no best score, no leaderboard. It switches off when the page reloads. */
+const TEST = { on:false, car:0 };
+const curCar = () => TEST.on ? CHARS[TEST.car] : CHARS[state.selected];
+function setTest(on){
+  if (game.state === "running") endRun();
+  TEST.on = on; TEST.car = state.selected;
+  $("testBar").hidden = !on;
+  document.body.classList.toggle("testing", on);
+  renderAll(); toast(on ? "Test drive mode on: every car unlocked" : "Test drive mode off");
+}
+{ let taps = [];
+  $("brandTitle").addEventListener("click", () => { const now = Date.now(); taps = taps.filter(t => now - t < 2500); taps.push(now); if (taps.length >= 7){ taps = []; setTest(!TEST.on); } });
+  let typed = "";
+  document.addEventListener("keydown", e => { if (e.key.length !== 1 || /INPUT|TEXTAREA/.test(e.target.tagName)) return; typed = (typed + e.key.toLowerCase()).slice(-10);
+    if (typed.endsWith("testcar")){ typed = ""; setTest(!TEST.on); }
+    else if (TEST.on && typed.endsWith("sinkhole")){ typed = ""; TEST.sink = true; if (game.state === "running") game.monsterAt = game.dist + 15; toast("The road ahead looks shaky…"); }
+    else if (TEST.on && typed.endsWith("goldcar")){ typed = ""; TEST.gold = true; if (game.state === "running"){ game.goldAt = game.dist + 5; game.goldSpawned = false; } toast("Watch for the Golden Car!"); } });
+}
+function selectChar(id){
+  if (TEST.on){ TEST.car = id; renderHUD(); renderCards(); renderNow(); toast("Test driving the " + CHARS[id].name); return; }
+  if (!state.owned[id] || state.selected === id) return;
+  state.selected = id; Saves.save(); renderHUD(); renderCards(); renderNow();
+  toast("Now driving the " + CHARS[id].name);
+}
+$("filters").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; filter = +b.dataset.f; renderFilters(); renderCards(); });
+
+/* ---------- account box ---------- */
+function renderAccount(){
+  const cloud = Saves.mode === "fire";
+  $("whoBox").hidden = !cloud;
+  $("authBox").hidden = cloud || !Saves.auth;
+  $("acct").classList.toggle("signed", cloud);
+  if (cloud) $("overCta").hidden = true;
+
+  if (!cloud){
+    const sel = $("profileSel"); sel.textContent = "";
+    Saves.profiles().forEach(p => { const o=document.createElement("option"); o.value=p; o.textContent=p; if (p===Saves.profile) o.selected=true; sel.append(o); });
+    $("delProfile").disabled = Saves.profiles().length < 2;
+  }
+}
+$("profileSel").addEventListener("change", e => switchProfile(e.target.value));
+function switchProfile(name){
+  if (game.state === "running") endRun();
+  Saves.profile = name; LS.set(PREFIX+"current", name);
+  state = Saves.loadLocal(name); renderAll(); setSaveStatus("local"); toast("Playing as " + name);
+}
+$("addProfile").addEventListener("click", () => {
+  const name = $("newProfile").value.trim().replace(/\s+/g," ");
+  const list = Saves.profiles();
+  if (!name){ $("acctMsg").textContent = "Type a name for the new player first."; return; }
+  if (list.some(p=>p.toLowerCase()===name.toLowerCase())){ $("acctMsg").textContent = name + " already exists. Pick it from the list."; return; }
+  list.push(name); Saves.setProfiles(list); $("newProfile").value = ""; $("acctMsg").textContent = "";
+  Saves.saveLocal(); switchProfile(name); Saves.saveLocal();
+});
+$("newProfile").addEventListener("keydown", e => { if (e.key === "Enter") $("addProfile").click(); });
+$("delProfile").addEventListener("click", () => { $("delText").textContent = `Delete ${Saves.profile} and all their progress?`; $("delConfirm").hidden = false; });
+$("delNo").addEventListener("click", () => $("delConfirm").hidden = true);
+$("delYes").addEventListener("click", () => {
+  const list = Saves.profiles().filter(p => p !== Saves.profile);
+  LS.del(PREFIX+"save:"+Saves.profile); Saves.setProfiles(list); $("delConfirm").hidden = true;
+  switchProfile(list[0]);
+});
+
+/* ---------- save code ---------- */
+function renderCode(){ if (document.activeElement !== $("codeBox")) $("codeBox").value = encodeSave(state); }
+$("copyCode").addEventListener("click", () => {
+  const box = $("codeBox"); box.value = encodeSave(state);
+  const fallback = () => { box.focus(); box.select(); $("codeMsg").textContent = "Code selected. Press Ctrl+C (or ⌘C) to copy it."; };
+  try { navigator.clipboard.writeText(box.value).then(() => { $("codeMsg").textContent = "Copied. Keep it somewhere safe."; }, fallback); } catch { fallback(); }
+});
+let pendingImport = null;
+$("loadCode").addEventListener("click", () => {
+  try { pendingImport = decodeSave($("codeBox").value); $("loadConfirm").hidden = false; $("codeMsg").textContent = `Code holds ${fmt(pendingImport.coins)} coins and ${Object.keys(pendingImport.owned).length} cars.`; }
+  catch (e) { $("codeMsg").textContent = e.message; }
+});
+$("loadNo").addEventListener("click", () => { pendingImport = null; $("loadConfirm").hidden = true; $("codeMsg").textContent = ""; renderCode(); });
+$("loadYes").addEventListener("click", () => {
+  if (!pendingImport) return;
+  if (game.state === "running") endRun();
+  state = pendingImport; pendingImport = null; $("loadConfirm").hidden = true; $("codeMsg").textContent = "Progress loaded.";
+  Saves.save(true); renderAll();
+});
+
+/* ============================== SOUND & MUSIC ==============================
+   Everything is synthesized with the Web Audio API: no audio files, nothing to license.
+   Browsers only allow sound after the player taps or presses a key, so the engine wakes up on the first input. */
+const Sound = (() => {
+  let ac = null, master, sfxBus, noiseBuf;
+  const prefs = { sfx: LS.get(PREFIX + "sfx") !== "off" };
+  const SFX_VOL = .55;
+  function wake(){
+    if (!ac){
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+      try { ac = new C(); } catch { return null; }
+      master = ac.createGain(); master.gain.value = .9; master.connect(ac.destination);
+      sfxBus = ac.createGain(); sfxBus.gain.value = prefs.sfx ? SFX_VOL : 0; sfxBus.connect(master);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+    }
+    if (ac.state === "suspended") ac.resume().catch(() => {});
+    return ac;
+  }
+  function tone(f, dur, {type="square", vol=.3, at=0, slide=0, bus, attack=.005, cutoff=0}={}){
+    if (!ac) return; const t = ac.currentTime + at;
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack); g.gain.exponentialRampToValueAtTime(.0008, t + dur);
+    let node = o;
+    if (cutoff){ const f2 = ac.createBiquadFilter(); f2.type = "lowpass"; f2.frequency.value = cutoff; o.connect(f2); node = f2; }
+    node.connect(g); g.connect(bus || sfxBus); o.start(t); o.stop(t + dur + .02);
+    return g;
+  }
+  function noise(dur, {vol=.3, at=0, hp=0, lp=0, bus}={}){
+    if (!ac) return; const t = ac.currentTime + at;
+    const s = ac.createBufferSource(); s.buffer = noiseBuf; let node = s;
+    if (hp){ const f = ac.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp; node.connect(f); node = f; }
+    if (lp){ const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = lp; node.connect(f); node = f; }
+    const g = ac.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0008, t + dur);
+    node.connect(g); g.connect(bus || sfxBus); s.start(t); s.stop(t + dur + .02);
+  }
+  const ok = () => ac && prefs.sfx;
+  const fx = {
+    // engine starts: a little rev
+    start(){ if (!ok()) return; tone(70, .5, {type:"sawtooth", vol:.08, slide:160, cutoff:700, attack:.05}); noise(.3, {vol:.06, lp:500}); },
+    // a coin: a bright double ding
+    coin(){ if (!ok()) return; tone(988, .1, {type:"square", vol:.07, cutoff:4000}); tone(1319, .16, {type:"square", vol:.06, at:.06, cutoff:4000}); },
+    // a new round: two friendly horn honks and a chime
+    round(){ if (!ok()) return; [0, .2].forEach(d => { tone(392, .14, {type:"sawtooth", vol:.08, at:d, cutoff:1400}); tone(494, .14, {type:"sawtooth", vol:.06, at:d, cutoff:1400}); }); [784, 1047, 1319].forEach((f, i) => tone(f, .2, {type:"triangle", vol:.08, at:.5 + i*.08})); },
+    // squeezing past a car
+    whoosh(){ if (!ok()) return; const t0 = ac.currentTime, s2 = ac.createBufferSource(); s2.buffer = noiseBuf; const f = ac.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.5;
+      f.frequency.setValueAtTime(600, t0); f.frequency.exponentialRampToValueAtTime(2600, t0 + .25); const g = ac.createGain(); g.gain.setValueAtTime(.001, t0); g.gain.linearRampToValueAtTime(.18, t0 + .08); g.gain.exponentialRampToValueAtTime(.001, t0 + .3);
+      s2.connect(f); f.connect(g); g.connect(sfxBus); s2.start(t0); s2.stop(t0 + .35); tone(1568, .12, {type:"triangle", vol:.05, at:.05}); },
+    // crash: crunch, glass and a thud
+    crash(){ if (!ok()) return; noise(.5, {vol:.45, lp:1200}); noise(.6, {vol:.18, at:.05, hp:4000}); tone(90, .5, {type:"sine", vol:.5, slide:40}); for (let i = 0; i < 6; i++) tone(2000 + Math.random()*2500, .08, {type:"triangle", vol:.04, at:.08 + i*.05}); },
+    goldSeen(){ if (!ok()) return; [1047, 1319, 1568, 2093].forEach((f, i) => tone(f, .3, {type:"triangle", vol:.08, at:i*.08})); },
+    goldGet(){ if (!ok()) return; [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone(f, .35, {type:"square", vol:.06, at:i*.07, cutoff:3200})); noise(.8, {vol:.12, at:.4, hp:5000}); tone(55, 1, {type:"sine", vol:.4, slide:40}); },
+    // the sinkhole: a deep rumble, cracking, then the long fall
+    sinkhole(){ if (!ok()) return;
+      noise(2.2, {vol:.32, lp:180}); tone(38, 2.2, {type:"sawtooth", vol:.14, cutoff:160, attack:.5});
+      for (let k = 0; k < 7; k++) noise(.07, {vol:.25, at:.3 + k*.14 + Math.random()*.06, hp:900});
+      tone(900, 1.4, {type:"sine", vol:.1, at:2, slide:120}); noise(.9, {vol:.45, at:3.2, lp:500}); tone(55, .9, {type:"sine", vol:.5, at:3.2, slide:28}); },
+    // chest suspense: rattles speed up; rarer pulls add a riser, a heartbeat and a drumroll
+    shake(dur, tier){ if (!ok()) return;
+      let t = 0, gap = .16; while (t < dur - .05){ noise(.05, {vol:.2 + tier*.02, at:t, hp:1800}); tone(170 + Math.random()*40, .05, {type:"square", vol:.05, at:t + .02, cutoff:800}); t += gap; gap = Math.max(.05, gap * (tier >= 3 ? .9 : .97)); }
+      if (tier >= 3){ const s2 = ac.createBufferSource(); s2.buffer = noiseBuf; s2.loop = true; const f = ac.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 4; const g = ac.createGain(), t0 = ac.currentTime;
+        f.frequency.setValueAtTime(300, t0); f.frequency.exponentialRampToValueAtTime(7000, t0 + dur); g.gain.setValueAtTime(.001, t0); g.gain.exponentialRampToValueAtTime(.2, t0 + dur); s2.connect(f); f.connect(g); g.connect(sfxBus); s2.start(t0); s2.stop(t0 + dur); }
+      if (tier >= 4) for (let k = 0; k < dur/.6; k++){ tone(70, .2, {type:"sine", vol:.5, at:k*.6, slide:45}); tone(70, .18, {type:"sine", vol:.35, at:k*.6 + .2, slide:45}); }
+      if (tier >= 5) for (let k = 0; k < 28; k++) noise(.05, {vol:.08 + k*.006, at: dur - 1.1 + k*.04, hp:1500});
+    },
+    reveal(tier){ if (!ok()) return;
+      const T = (f, d, o) => tone(f, d, o);
+      if (tier === 0){ T(784, .25, {type:"triangle", vol:.14}); T(1047, .35, {type:"triangle", vol:.12, at:.09}); return; }
+      if (tier === 1){ [659,784,1047].forEach((f,i) => T(f, .4, {type:"triangle", vol:.13, at:i*.08})); noise(.2, {vol:.08, hp:6000}); return; }
+      if (tier === 2){ [523,659,784,1047,1319].forEach((f,i) => T(f, .45, {type:"square", vol:.08, at:i*.07, cutoff:3200})); for (let i = 0; i < 6; i++) T(2000 + i*250, .12, {type:"sine", vol:.05, at:.35 + i*.05}); noise(.3, {vol:.12, hp:5000}); return; }
+      noise(1.2, {vol:.22 + tier*.04, hp:4500});                         // cymbal crash
+      if (tier >= 4){ T(55, 1.4, {type:"sine", vol:.7, slide:30}); noise(.25, {vol:.4, lp:900}); }
+      const chordA = tier === 3 ? [523,659,784] : [392,523,659,784], chordB = tier === 3 ? [587,740,880,1175] : [523,659,784,1047,1319];
+      chordA.forEach(f => [-10,10].forEach(d => T(f * (1 + d/1200), .5, {type:"sawtooth", vol:.06, cutoff:2400})));
+      chordB.forEach(f => [-10,10].forEach(d => T(f * (1 + d/1200), tier >= 4 ? 1.6 : 1.0, {type:"sawtooth", vol:.06, at:.42, cutoff:3200 + tier*400, attack:.03})));
+      if (tier >= 4) [0,.14,.28,.42].forEach((d,i) => T(i < 3 ? 98 : 131, .35, {type:"sine", vol:.45, at:d, slide:60}));   // timpani
+      const sp = tier === 3 ? 8 : (tier === 4 ? 16 : 30);
+      for (let i = 0; i < sp; i++) T(1600 + Math.random()*2400, .14, {type:"sine", vol:.05, at:.5 + i*.06});
+      if (tier >= 5){ [1047,1319,1568,2093].forEach((f,i) => T(f, 1.8, {type:"triangle", vol:.07, at:1.0 + i*.12})); T(41, 2, {type:"sine", vol:.6, at:.0, slide:28}); }
+    },
+    click(){ if (!ok()) return; tone(660, .05, {type:"square", vol:.07}); },
+  };
+
+  function setSfx(on){ prefs.sfx = on; LS.set(PREFIX + "sfx", on ? "on" : "off"); if (ac) sfxBus.gain.value = on ? SFX_VOL : 0; renderSoundButtons(); }
+  document.addEventListener("visibilitychange", () => { if (!ac) return; if (document.hidden) ac.suspend().catch(()=>{}); else ac.resume().catch(()=>{}); });
+  // first touch or key anywhere unlocks audio (iPhone needs this)
+  const unlock = () => wake();
+  ["pointerdown","touchend","keydown"].forEach(ev => document.addEventListener(ev, unlock, {passive:true}));
+  const noop = () => {};
+  return Object.assign(fx, { prefs, wake, setSfx });
+})();
+function renderSoundButtons(){
+  document.querySelectorAll("[data-snd]").forEach(b => {
+    const kind = b.dataset.snd, on = Sound.prefs[kind];
+    b.setAttribute("aria-pressed", on);
+    b.textContent = "Sound" + (on ? ": On" : ": Off");
+  });
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-snd]"); if (!b) return;
+  e.stopPropagation();
+  Sound.setSfx(!Sound.prefs.sfx);
+  if (Sound.prefs.sfx) Sound.click();
+  b.blur();
+});
+/* ============================== TREASURE CHEST ============================== */
+let chestBusy = false, lastPull = null;
+const chestCtx = setupCanvas($("chestCv"));
+// a red mechanic's tool chest; open, it holds tools, a spare tire and a set of keys
+function drawChest(open, t, ctx = chestCtx){
+  ctx.clearRect(0, 0, 300, 300);
+  ctx.save(); ctx.translate(150, 172); ctx.scale(6, 6);
+  const P = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+  const RED = "#d0262e", RED2 = "#f04a4a", DK = "#7a1018", MET = "#c8ccd8", MET2 = "#8a8e9a";
+  P(-13, 9, 26, 2, "rgba(0,0,0,.4)");
+  P(-12, -2, 24, 11, RED); P(-12, -2, 24, 1, RED2); P(-12, 3, 24, 1, DK); P(-12, 7, 24, 1, DK);
+  P(-4, 0, 8, 1, MET); P(-4, 5, 8, 1, MET);                                           // drawer handles
+  P(-12, 8, 2, 2, "#1c1c22"); P(10, 8, 2, 2, "#1c1c22");                                // wheels
+  if (!open){
+    P(-12, -8, 24, 6, RED); P(-12, -8, 24, 1, RED2); P(-12, -3, 24, 1, DK); P(-5, -10, 10, 2, MET2); P(-5, -10, 10, 1, MET);
+    P(-2, -6, 4, 3, "#ffd34d"); P(-1, -5, 2, 1, "#a87010");                              // latch
+    P(-10, -7, 3, 3, "#f4f4f8"); P(-9, -6, 1, 1, RED);                                    // checkered flag sticker
+  } else {
+    P(-12, -16, 24, 5, RED); P(-12, -16, 24, 1, RED2);
+    P(-11, -5, 22, 3, "#2a2a30");
+    P(-9, -9, 7, 7, "#1c1c22"); P(-7, -7, 3, 3, MET2);                                   // spare tire
+    P(0, -10, 2, 8, MET); P(-1, -11, 4, 2, MET);                                         // wrench
+    P(4, -8, 6, 2, "#ffd34d"); P(9, -9, 2, 4, "#ffd34d"); P(5, -6, 1, 2, "#ffd34d");      // keys
+  }
+  ctx.restore();
+}
+function rollChar(){
+  let r = Math.random() * 100, tier = 0;
+  for (let i=0;i<TIERS.length;i++){ if (r < TIERS[i].weight){ tier=i; break; } r -= TIERS[i].weight; tier = i; }
+  const pool = CHARS.filter(c=>c.tier===Math.min(tier, 5));
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+const cfChestCtx = setupCanvas($("cfChest")), cfCharCtx = setupCanvas($("cfChar"));
+let cfOpen = false, cfRevealed = false;
+// how dramatic each rarity's opening is
+const CHEST_FX = [
+  {dur:1.0, rayop:0,   rayspd:18, glow:0,  flash:0,   conf:0,   coins:0,  hints:[]},
+  {dur:1.2, rayop:.14, rayspd:20, glow:8,  flash:0,   conf:22,  coins:0,  hints:[]},
+  {dur:1.5, rayop:.2,  rayspd:15, glow:12, flash:.35, conf:50,  coins:0,  hints:[[.6,"Something's glowing…"]]},
+  {dur:1.9, rayop:.28, rayspd:10, glow:18, flash:.6,  conf:100, coins:0,  hints:[[.4,"Something's glowing…"],[.75,"It's getting stronger!"]]},
+  {dur:2.4, rayop:.34, rayspd:7,  glow:26, flash:.85, conf:160, coins:40, hints:[[.3,"Something's glowing…"],[.6,"It's getting stronger!"],[.85,"Here it comes…"]]},
+  {dur:3.2, rayop:.42, rayspd:4,  glow:34, flash:1,   conf:260, coins:70, hints:[[.25,"Something's glowing…"],[.5,"The ground is shaking…"],[.75,"This is no ordinary chest…"],[.92,"!!!"]]},
+];
+const cfFx = $("cfFx"), cfFxCtx = cfFx.getContext("2d");
+let cfParts = [], cfTimers = [];
+function cfSize(){ const d = Math.min(devicePixelRatio || 1, 2); cfFx.width = innerWidth * d; cfFx.height = innerHeight * d; cfFxCtx.setTransform(d,0,0,d,0,0); }
+function cfBurst(tier){
+  const fx = CHEST_FX[tier], r = $("cfChest").getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height*.45;
+  const cols = [["#ffffff"],["#6fd36a","#c8f5c0","#ffffff"],["#4aa8ff","#bfe2ff","#ffffff"],["#b77bff","#ff8ad8","#ffffff"],["#ffb23f","#ffd34d","#fff3b0","#ffffff"],["#ff4f6b","#ffd34d","#5fe03a","#2de2e6","#b77bff","#ffffff"]][tier];
+  for (let i = 0; i < fx.conf; i++){ const a = Math.random()*Math.PI*2, sp = 200 + Math.random()*(300 + tier*120);
+    cfParts.push({k:"c", x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 200, r:Math.random()*6, vr:(Math.random()-.5)*12, w:5 + Math.random()*5, h:3 + Math.random()*4, col:cols[i % cols.length], life:2.4 + Math.random()*1.2}); }
+  for (let i = 0; i < fx.coins; i++) cfParts.push({k:"o", x:Math.random()*innerWidth, y:-20 - Math.random()*innerHeight*.8, vx:(Math.random()-.5)*40, vy:120 + Math.random()*160, r:0, vr:4 + Math.random()*6, life:5});
+}
+function cfDraw(dt){
+  const W = innerWidth, H = innerHeight; cfFxCtx.clearRect(0, 0, W, H);
+  cfParts.forEach(p => { p.life -= dt; p.vy += (p.k === "o" ? 160 : 520)*dt; p.vx *= .99; p.x += p.vx*dt; p.y += p.vy*dt; p.r += p.vr*dt;
+    cfFxCtx.save(); cfFxCtx.globalAlpha = Math.min(1, p.life); cfFxCtx.translate(p.x, p.y);
+    if (p.k === "o"){ cfFxCtx.fillStyle = "#8a5a10"; cfFxCtx.beginPath(); cfFxCtx.arc(0, 0, 8, 0, Math.PI*2); cfFxCtx.fill(); cfFxCtx.fillStyle = "#ffc83a"; cfFxCtx.beginPath(); cfFxCtx.ellipse(0, 0, 7*Math.abs(Math.cos(p.r)) + .5, 7, 0, 0, Math.PI*2); cfFxCtx.fill(); }
+    else { cfFxCtx.rotate(p.r); cfFxCtx.fillStyle = p.col; cfFxCtx.fillRect(-p.w/2, -p.h/2, p.w, p.h * Math.abs(Math.cos(p.r*1.3)) + 1); }
+    cfFxCtx.restore(); });
+  cfParts = cfParts.filter(p => p.life > 0 && p.y < H + 40);
+}
+function openChest(){
+  if (TEST.on){ toast("Chests are paused in test drive mode"); return; }
+  if (chestBusy || state.coins < 100) return;
+  Sound.wake();
+  chestBusy = true; state.coins -= 100; state.chests++;
+  const c = rollChar(), isNew = !state.owned[c.id], t = TIERS[c.tier];
+  state.owned[c.id] = (state.owned[c.id]||0) + 1;
+  if (!isNew) state.coins += t.refund;
+  Saves.save(true); renderHUD();
+  lastPull = c;
+  if (game.state === "running") game.paused = true;
+  const el = $("chestFull"), fx = CHEST_FX[c.tier];
+  cfTimers.forEach(clearTimeout); cfTimers = []; cfParts = []; cfSize();
+  el.hidden = false; el.classList.remove("revealed","glowing","quake","dim"); el.classList.add("shaking");
+  el.dataset.tier = c.tier;
+  el.style.setProperty("--cf", t.color); el.style.setProperty("--rayop", fx.rayop); el.style.setProperty("--rayspd", fx.rayspd + "s");
+  el.style.setProperty("--glowpx", fx.glow + "px"); el.style.setProperty("--flash", fx.flash); el.style.setProperty("--shk", ".16s");
+  $("cfHint").textContent = "Opening…";
+  Sound.shake(fx.dur, c.tier);
+  const later = (sec, f) => cfTimers.push(setTimeout(f, sec*1000));
+  fx.hints.forEach(([at, txt]) => later(fx.dur*at, () => { $("cfHint").textContent = txt; }));
+  if (fx.glow) later(fx.dur*(c.tier >= 3 ? .4 : .7), () => el.classList.add("glowing"));
+  if (c.tier >= 3) later(fx.dur*.6, () => el.style.setProperty("--shk", ".08s"));
+  if (c.tier >= 4) later(fx.dur*.85, () => el.style.setProperty("--shk", ".05s"));
+  if (c.tier >= 5) later(.3, () => el.classList.add("dim"));
+  cfOpen = true; cfRevealed = false; document.body.style.overflow = "hidden";
+  $("cfTier").textContent = ""; $("cfName").textContent = ""; $("cfNote").textContent = "";
+  later(fx.dur, () => {
+    $("cfTier").textContent = t.name; $("cfTier").style.color = t.color;
+    $("cfName").textContent = c.name; $("cfName").style.color = c.tier >= 3 ? t.color : "var(--ink)"; $("cfName").classList.toggle("creator", isCreator(c));
+    $("cfNote").textContent = (themeFor(c) ? `Drives on the ${themeFor(c).world} · ` : "") + (c.smoke ? SMOKE_NAME[c.smoke] + " · " : "") + (isNew ? `New car! ${carNo(c)} of ${CHARS.length}` : `You already had this one · +${t.refund} coins back`);
+    el.classList.remove("shaking","dim"); el.classList.add("revealed"); cfRevealed = true; Sound.reveal(c.tier);
+    if (c.tier >= 4){ el.classList.remove("quake"); void el.offsetWidth; el.classList.add("quake"); }
+    if (c.tier >= 5) $("cfTier").textContent = "Mythic!";
+    cfBurst(c.tier);
+    $("cfRun").hidden = state.selected === c.id;
+    $("cfAgain").hidden = state.coins < 100;
+    $("cfAgain").textContent = "Open another · 100";
+    chestBusy = false;
+    renderAll();
+    setTimeout(() => ($("cfRun").hidden ? $("cfClose") : $("cfRun")).focus({preventScroll:true}), 400);
+  });
+}
+function closeChest(){
+  if (!cfOpen || chestBusy) return;
+  cfOpen = false; $("chestFull").hidden = true; $("chestFull").classList.remove("revealed","shaking","glowing","quake","dim"); cfParts = []; cfTimers.forEach(clearTimeout);
+  document.body.style.overflow = "";
+}
+$("openChest").addEventListener("click", openChest);
+$("testOff").addEventListener("click", () => setTest(false));
+$("cfClose").addEventListener("click", closeChest);
+$("cfAgain").addEventListener("click", () => { cfOpen = false; openChest(); });
+$("cfRun").addEventListener("click", () => { if (lastPull) selectChar(lastPull.id); closeChest(); });
+/* ============================== GAME ==============================
+   Top-down 6-lane highway. Everyone drives up the screen; traffic is slower than you, so it comes
+   toward you and you weave around it. Mouse (or a finger swiping) steers left and right. */
+const cv = $("game"); let ctx = setupCanvas(cv);
+let GW = 560, GH = 470, SCALE = 1;
+const LANES = 6, LANE_W = 54, ROAD_W = LANES*LANE_W;
+let ROAD_X = 0, PY = 0;
+function layout(){ ROAD_X = Math.round(GW/2 - ROAD_W/2); PY = GH - 96; }
+const laneX = i => ROAD_X + LANE_W*(i + .5);
+const isPhone = () => matchMedia("(pointer:coarse)").matches && Math.min(innerWidth, innerHeight) < 700;
+const isFS = () => document.body.classList.contains("fs");
+function sizeGame(){
+  const w = cv.clientWidth || cv.parentElement.clientWidth || 640, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (isFS()){
+    const h = cv.parentElement.clientHeight || innerHeight;
+    GW = 372; GH = Math.max(520, Math.round(GW*h/w));
+    cv.style.aspectRatio = "auto";
+    const pw = Math.round(w*dpr), ph = Math.round(h*dpr);
+    if (cv.width !== pw || cv.height !== ph){ cv.width = pw; cv.height = ph; ctx.imageSmoothingEnabled = false; }
+    SCALE = cv.width/GW; layout(); return;
+  }
+  GH = 480; GW = w < 700 ? 372 : 600;
+  const room = window.innerHeight - (matchMedia("(pointer:coarse)").matches ? 120 : 170);
+  if (room > 160 && w*GH/GW > room) GW = Math.min(1200, Math.ceil(w*GH/room));
+  cv.style.aspectRatio = GW + " / " + GH;
+  const pw = Math.round(w*dpr), ph = Math.round(pw*GH/GW);
+  if (cv.width !== pw || cv.height !== ph){ cv.width = pw; cv.height = ph; ctx.imageSmoothingEnabled = false; }
+  SCALE = cv.width/GW; layout();
+}
+sizeGame();
+window.addEventListener("resize", sizeGame);
+function enterFS(){
+  if (!isPhone() || isFS()) return;
+  document.body.classList.add("fs"); document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => { const k = (game.px - ROAD_X)/ROAD_W, kt = (game.tx - ROAD_X)/ROAD_W; sizeGame(); game.px = ROAD_X + k*ROAD_W; game.tx = ROAD_X + kt*ROAD_W; });
+  try { const de = document.documentElement; (de.requestFullscreen || de.webkitRequestFullscreen)?.call(de).catch?.(() => {}); } catch {}
+}
+function exitFS(){
+  if (!isFS()) return;
+  if (game.state === "running") game.paused = true;
+  document.body.classList.remove("fs"); document.body.style.overflow = "";
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
+  requestAnimationFrame(() => { const k = (game.px - ROAD_X)/ROAD_W, kt = (game.tx - ROAD_X)/ROAD_W; sizeGame(); game.px = ROAD_X + k*ROAD_W; game.tx = ROAD_X + kt*ROAD_W; });
+}
+$("fsExit").addEventListener("click", exitFS);
+window.addEventListener("orientationchange", () => setTimeout(sizeGame, 200));
+
+const ROUND_LEN = r => 380 + r*120;           // meters per round
+const SINK_CHANCE = 1/25, GOLD_CHANCE = 1/25;
+const game = {state:"ready", t:0, speed:0, dist:0, round:1, roundDist:0, runCoins:0, px:0, tx:0, vx:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
+  scroll:0, rowT:0, safe:2, banner:null, paused:false, mt:0};
+function resetRun(){
+  Object.assign(game, {t:0, speed:420, dist:0, round:1, roundDist:0, runCoins:0, px:laneX(2.5), tx:laneX(2.5), vx:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
+    rowT:1.1, safe:2 + Math.floor(Math.random()*2), banner:{text:"Round 1", sub: themeFor(curCar()) ? themeFor(curCar()).world : (TEST.on ? "Test drive" : "Let's roll!"), t:1.8}, paused:false, monsterEnd:false, mt:0, crashT:0,
+    goldSpawned:false, goldCaught:false, smokeT:0});
+}
+function startRun(){
+  resetRun(); game.state = "running";
+  game.monsterAt = (TEST.sink || (!TEST.on && Math.random() < SINK_CHANCE)) ? (TEST.sink ? 60 : 200 + Math.random()*1000) : Infinity; TEST.sink = false;
+  game.goldAt = (TEST.gold || (!TEST.on && Math.random() < GOLD_CHANCE)) ? (TEST.gold ? 50 : 150 + Math.random()*900) : Infinity; TEST.gold = false;
+  $("overCta").hidden = true; Sound.start();
+  if (!isFS()){ const r = document.querySelector(".cabinet").getBoundingClientRect(); if (r.top < 0 || r.bottom > window.innerHeight) document.querySelector(".cabinet").scrollIntoView({behavior:"smooth", block: r.height > window.innerHeight ? "start" : "center"}); }
+}
+function endRun(){
+  game.state = "over"; game.overT = game.t;
+  const d = Math.floor(game.dist);
+  if (TEST.on){ game.newBest = false; return; }
+  state.runs++;
+  const newBest = d > state.best; if (newBest) state.best = d;
+  if (game.round > state.bestRound) state.bestRound = game.round;
+  game.newBest = newBest;
+  Saves.save(true); renderHUD(); renderCode();
+  submitScore(d);
+  if (Saves.mode !== "fire" && Saves.auth){ $("ocSum").textContent = `${fmt(d)} m · +${game.runCoins} coins`; $("overCta").hidden = false; }
+}
+function addCoins(n){ game.runCoins += n; if (!TEST.on){ state.coins += n; state.lifetimeCoins += n; renderHUD(); } }
+
+/* ---------- traffic ---------- */
+const TRAFFIC_BODIES = ["sedan","sedan","hatch","coupe","suv","pickup","van","taxi","sedan","suv","hatch","bug","jeep","muscle","police"];
+const TRAFFIC_COLS = ["#2f6ad8","#d8303a","#b8bcc8","#f0f0f4","#3a8a4a","#22242c","#e8b030","#7a1a2a","#8ae0c0","#6a3ab0","#ff8a2a","#c8a878","#5a6a7a","#1a5a8a"];
+function spawnRow(){
+  const r = game.round;
+  // a "safe lane" wanders by at most one lane per row, so there is always a way through
+  game.safe = Math.max(0, Math.min(LANES - 1, game.safe + (Math.random() < .5 ? -1 : 1)*(Math.random() < .6 ? 1 : 0)));
+  const want = Math.min(LANES - 1, 1 + Math.floor(Math.random()*(1.6 + r*.55)));
+  const open = [...Array(LANES).keys()].filter(l => l !== game.safe).sort(() => Math.random() - .5).slice(0, want);
+  const v = game.speed*(.42 + Math.random()*.08);
+  open.forEach(l => {
+    const truck = r >= 2 && Math.random() < .13;
+    const car = truck ? {body:"truck", w:32, l:96, main: TRAFFIC_COLS[Math.floor(Math.random()*TRAFFIC_COLS.length)], accent:"#f4f4f8"}
+      : (() => { const b = TRAFFIC_BODIES[Math.floor(Math.random()*TRAFFIC_BODIES.length)], m = TRAFFIC_COLS[Math.floor(Math.random()*TRAFFIC_COLS.length)]; return {body:b, w:BODY[b].w, l:BODY[b].l, main:m, accent:shade(m, .5), ex:"", tier:0}; })();
+    car.x = laneX(l) + (Math.random() - .5)*6; car.y = -car.l/2 - 20 - Math.random()*30; car.v = v*(.97 + Math.random()*.06); car.lane = l;
+    if (r >= 3 && !truck && Math.random() < Math.min(.25, .06 + r*.03)) car.change = {dir: Math.random() < .5 ? -1 : 1, at: 60 + Math.random()*Math.max(60, PY - 320)};
+    game.cars.push(car);
+  });
+  // a trail of coins down the safe lane
+  if (Math.random() < .5){ const x = laneX(game.safe); for (let i = 0; i < 5; i++) game.coins.push({x, y: -30 - i*30, spin:i*.6}); }
+  game.rowT = Math.max(.42, 1.05 - r*.075) * (.9 + Math.random()*.25);
+}
+function spawnGold(){
+  let l = Math.floor(Math.random()*LANES);
+  game.cars.push(Object.assign({}, CHARS[GOLD_ID], {gold:true, w:30, l:56, x:laneX(l), y:-60, v:game.speed*.74, lane:l, tl:l, swT:1.2}));
+  game.banner = {text:"THE GOLDEN CAR!", sub:"Bump into it to win it", t:2.2}; Sound.goldSeen();
+}
+
+/* ---------- exhaust smoke: every rare-and-up car has its own ---------- */
+const RAIN = ["#ff3a3a","#ff8a3d","#ffd34d","#7dff5a","#2de2e6","#3a8aff","#b77bff"];
+function emitSmoke(c, dt){
+  const kind = c.smoke || "", rate = kind ? (kind === "drift" ? 0 : 26) : 9, b = BODY[c.body] || BODY.sedan;
+  game.smokeT += dt*rate;
+  const rear = PY + b.l/2 - 2, sx = game.px - Math.sin(game.yaw)*b.l/2, sy = rear;
+  while (game.smokeT >= 1){ game.smokeT -= 1; const n = game.smoke.length;
+    const P = o => game.smoke.push(Object.assign({x: sx + (Math.random() - .5)*8, y: sy, vx:(Math.random() - .5)*30, vy: 60 + Math.random()*40, life:.7, max:.7, k: kind || "gray", r:3}, o));
+    switch (kind){
+      case "": P({r:2.5, life:.5, max:.5}); break;
+      case "color": P({col:c.accent, r:4}); break;
+      case "spark": P({col: n % 2 ? "#ffd34d" : "#ffffff", vx:(Math.random() - .5)*120, vy:80 + Math.random()*120, life:.4, max:.4, r:1.6}); break;
+      case "fire": P({life:.45, max:.45, r:5, vy:140}); break;
+      case "heart": P({col:"#ff4fa3", r:4, life:.9, max:.9}); break;
+      case "star": P({col: n % 3 ? "#ffd34d" : "#ffffff", r:4, life:.9, max:.9, rot:Math.random()*6}); break;
+      case "rainbow": P({col: RAIN[n % 7], x:sx, r:5, vx:0, vy:150, life:.8, max:.8}); break;
+      case "neon": P({col:c.accent, x:sx, r:3, vx:0, vy:150, life:.6, max:.6}); break;
+      case "bubble": P({col:"#9af0ff", r:3 + Math.random()*3, life:1, max:1}); break;
+      case "snow": P({col:"#ffffff", r:2.5, life:1, max:1, rot:Math.random()*6}); break;
+      case "bolt": P({col:"#ffd34d", r:6, life:.35, max:.35, rot:Math.random()*6}); break;
+      case "gold": P({col: n % 2 ? "#ffd34d" : "#fff3b0", r:2.2, vx:(Math.random() - .5)*70, life:.8, max:.8}); break;
+      case "comet": P({col: n % 2 ? "#bfefff" : "#ffffff", x:sx, r:6, vx:0, vy:120, life:.9, max:.9}); break;
+      case "ghost": P({col:"#e8f0ff", r:6, life:1.1, max:1.1, vy:40}); break;
+    }
+  }
+  // drift car: thick tire smoke and skid marks while it slides
+  if (c.ex.includes("d")){
+    const slide = Math.min(1, Math.abs(game.vx)/420);
+    if (slide > .15) for (let k = 0; k < 2; k++){ const side = k ? 1 : -1, wx = game.px + Math.cos(game.yaw)*side*14 - Math.sin(game.yaw)*20, wy = PY + 20;
+      if (Math.random() < slide*1.4) game.smoke.push({x:wx, y:wy, vx:(Math.random() - .5)*40 - game.vx*.15, vy:90, life:1.1, max:1.1, k:"drift", r:5 + Math.random()*4});
+      game.skids.push({x:wx, y:wy, a:.35*slide}); }
+  }
+}
+function drawSmoke(){
+  game.smoke.forEach(p => { const a = Math.max(0, p.life/p.max), age = 1 - a; ctx.globalAlpha = a;
+    switch (p.k){
+      case "gray": circ(p.x, p.y, p.r + age*6, "rgba(200,204,214,.55)"); break;
+      case "drift": circ(p.x, p.y, p.r + age*14, "rgba(235,238,245,.6)"); break;
+      case "ghost": circ(p.x, p.y, p.r + age*8, "rgba(230,240,255,.35)"); break;
+      case "fire": circ(p.x, p.y, Math.max(.5, p.r*(1 - age*.7)), age < .35 ? "#ffd34d" : age < .7 ? "#ff8a2a" : "#e0261a"); break;
+      case "heart": ctx.fillStyle = p.col; heart(p.x, p.y, p.r*(1 + age*.4)); break;
+      case "star": ctx.fillStyle = p.col; star(p.x, p.y, p.r, p.rot); break;
+      case "snow": ctx.strokeStyle = p.col; ctx.lineWidth = 1; for (let i = 0; i < 3; i++){ const a2 = p.rot + i*Math.PI/3; ctx.beginPath(); ctx.moveTo(p.x - Math.cos(a2)*p.r, p.y - Math.sin(a2)*p.r); ctx.lineTo(p.x + Math.cos(a2)*p.r, p.y + Math.sin(a2)*p.r); ctx.stroke(); } break;
+      case "bubble": ctx.strokeStyle = p.col; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.stroke(); break;
+      case "bolt": ctx.strokeStyle = p.col; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(p.x - 2, p.y - p.r); ctx.lineTo(p.x + 2, p.y - 1); ctx.lineTo(p.x - 2, p.y + 1); ctx.lineTo(p.x + 2, p.y + p.r); ctx.stroke(); break;
+      case "rainbow": case "neon": case "comet": ctx.fillStyle = p.col; ctx.fillRect(p.x - p.r/2, p.y - 3, p.r, 7); break;
+      default: circ(p.x, p.y, p.r, p.col || "#ffffff");
+    } });
+  ctx.globalAlpha = 1;
+}
+function heart(x, y, k){ ctx.beginPath(); ctx.moveTo(x, y + k*.9); ctx.bezierCurveTo(x - k*1.4, y, x - k*.8, y - k*.9, x, y - k*.3); ctx.bezierCurveTo(x + k*.8, y - k*.9, x + k*1.4, y, x, y + k*.9); ctx.fill(); }
+function star(x, y, r, rot){ ctx.beginPath(); for (let i = 0; i < 10; i++){ const a = rot + i*Math.PI/5, rr = i % 2 ? r*.45 : r; ctx.lineTo(x + Math.cos(a)*rr, y + Math.sin(a)*rr); } ctx.closePath(); ctx.fill(); }
+const circ = (x, y, r, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, Math.max(.1, r), 0, Math.PI*2); ctx.fill(); };
+
+/* ---------- update ---------- */
+function update(dt){
+  game.t += dt;
+  if (game.banner){ game.banner.t -= dt; if (game.banner.t <= 0) game.banner = null; }
+  game.texts.forEach(x => x.t += dt); game.texts = game.texts.filter(x => x.t < 1.2);
+  const c = curCar();
+  // road scrolls by the car's speed; things on the road move down the screen
+  const roadV = game.state === "running" && !game.paused ? game.speed : (game.state === "ready" ? 160 : 0);
+  if (!game.paused) game.scroll += roadV*dt;
+  game.smoke.forEach(p => { p.x += p.vx*dt; p.y += (p.vy + (game.state === "running" ? game.speed*.75 : 40))*dt*(game.paused ? 0 : 1); p.life -= game.paused ? 0 : dt; }); game.smoke = game.smoke.filter(p => p.life > 0 && p.y < GH + 30);
+  game.parts.forEach(p => { p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 200*dt; p.life -= dt; }); game.parts = game.parts.filter(p => p.life > 0);
+  if (game.state === "monster"){ updateSink(dt); return; }
+  if (game.state === "ready"){ game.px += (game.tx - game.px)*Math.min(1, dt*6); if (Math.random() < dt*8) emitSmoke(c, dt); return; }
+  if (game.state !== "running" || game.paused){ return; }
+  if (game.dist >= game.monsterAt){ startSink(); return; }
+  if (!game.goldSpawned && game.dist >= game.goldAt){ game.goldSpawned = true; spawnGold(); }
+  // speed and distance
+  game.speed = Math.min(1050, 420 + (game.round - 1)*48 + Math.min(90, game.roundDist*.12));
+  const dy = game.speed*dt; game.dist += dy/10; game.roundDist += dy/10;
+  if (game.roundDist >= ROUND_LEN(game.round)){
+    const bonus = 2*game.round; addCoins(bonus); game.round++; game.roundDist = 0;
+    game.banner = {text:"Round " + game.round, sub:"+" + bonus + " coin round bonus · traffic is heavier", t:2}; Sound.round(); Saves.save();
+  }
+  // steering: the car chases where you point. The drift car slides there sideways.
+  const lo = ROAD_X + 16, hi = ROAD_X + ROAD_W - 16; game.tx = Math.max(lo, Math.min(hi, game.tx));
+  if (keys.L) game.tx -= 620*dt; if (keys.R) game.tx += 620*dt;
+  const drift = c.ex.includes("d");
+  const want = Math.max(-980, Math.min(980, (game.tx - game.px)*(drift ? 7 : 13)));
+  game.vx += (want - game.vx)*Math.min(1, dt*(drift ? 5.5 : 18));
+  game.px = Math.max(lo - 4, Math.min(hi + 4, game.px + game.vx*dt));
+  const wantYaw = drift ? Math.max(-.7, Math.min(.7, game.vx*.0014)) : Math.max(-.2, Math.min(.2, game.vx*.00022));
+  game.yaw += (wantYaw - game.yaw)*Math.min(1, dt*(drift ? 6 : 14));
+  emitSmoke(c, dt);
+  game.skids.forEach(s => s.y += dy); game.skids = game.skids.filter(s => s.y < GH + 10).slice(-500);
+  // traffic
+  game.rowT -= dt; if (game.rowT <= 0) spawnRow();
+  const pw = 22, pl = 46, pbox = {x: game.px - pw/2, y: PY - pl/2, w: pw, h: pl};
+  for (const car of game.cars){
+    car.y += (game.speed - car.v)*dt;
+    if (car.change && car.y > car.change.at && !car.changing){ const nl = car.lane + car.change.dir;
+      if (nl >= 0 && nl < LANES && car.y < PY - 220 && !game.cars.some(o => o !== car && o.lane === nl && Math.abs(o.y - car.y) < 130)){ car.changing = true; car.lane = nl; } else car.change = null; }
+    if (car.changing){ const tx = laneX(car.lane); car.x += Math.sign(tx - car.x)*Math.min(Math.abs(tx - car.x), 70*dt); if (Math.abs(tx - car.x) < .5) car.changing = false; }
+    if (car.gold){ car.swT -= dt; if (car.swT <= 0){ car.swT = .9 + Math.random()*.8; car.tl = Math.max(0, Math.min(LANES - 1, car.tl + (Math.random() < .5 ? -1 : 1))); } const tx = laneX(car.tl); car.x += Math.sign(tx - car.x)*Math.min(Math.abs(tx - car.x), 150*dt);
+      if (Math.random() < dt*20) game.parts.push({x:car.x + (Math.random() - .5)*20, y:car.y + 28, vx:(Math.random() - .5)*30, vy:60, life:.6, col: Math.random() < .5 ? "#ffd34d" : "#fff3b0"}); }
+    const cw = car.w - 6, cl = car.l - 8, cbox = {x: car.x - cw/2, y: car.y - cl/2, w: cw, h: cl};
+    if (pbox.x < cbox.x + cbox.w && pbox.x + pbox.w > cbox.x && pbox.y < cbox.y + cbox.h && pbox.y + pbox.h > cbox.y){
+      if (car.gold){ catchGold(car); continue; }
+      return crash(car);
+    }
+    // close call: zipping past a car with only a sliver of room
+    if (!car.nm && !car.gold && car.y - cl/2 > pbox.y + pbox.h){ car.nm = true; const gap = Math.abs(car.x - game.px) - (cw/2 + pw/2); if (gap < 7){ addCoins(1); game.texts.push({txt:"Close call! +1", x:game.px, y:PY - 50, t:0, col:"#7dffe0"}); Sound.whoosh(); } }
+  }
+  game.cars = game.cars.filter(car => { if (car.caught) return false; if (car.y - car.l/2 > GH + 10){ if (car.gold){ game.banner = {text:"It got away…", sub:"Maybe next time", t:1.6}; } return false; } return true; });
+  // coins
+  game.coins.forEach(k => { k.y += dy; k.spin += dt*6; const magnet = Math.abs(k.y - PY) < 70 && Math.abs(k.x - game.px) < 26; if (magnet){ k.x += (game.px - k.x)*Math.min(1, dt*12); } });
+  game.coins = game.coins.filter(k => { if (k.y > GH + 20) return false;
+    if (Math.abs(k.x - game.px) < 20 && Math.abs(k.y - PY) < 30){ addCoins(1); Sound.coin(); game.parts.push({x:k.x, y:k.y, vx:0, vy:-40, life:.4, col:"#ffe08a"}); return false; }
+    return true; });
+}
+function crash(car){
+  for (let i = 0; i < 22; i++) game.parts.push({x:game.px, y:PY - 20, vx:(Math.random() - .5)*260, vy:-Math.random()*200, life:.6 + Math.random()*.4, col: i % 3 ? curCar().main : "#c8ccd8"});
+  game.crashT = .01; Sound.crash(); endRun();
+}
+function catchGold(car){
+  car.caught = true; game.goldCaught = true;
+  for (let i = 0; i < 30; i++) game.parts.push({x:car.x, y:car.y, vx:(Math.random() - .5)*260, vy:-Math.random()*240, life:.9, col: i % 2 ? "#ffd34d" : "#ffffff"});
+  if (TEST.on){ game.banner = {text:"CAUGHT IT!", sub:"(Test mode: nothing is unlocked)", t:2}; Sound.goldGet(); return; }
+  if (!state.owned[GOLD_ID]){ state.owned[GOLD_ID] = 1; Saves.save(true); renderAll(); game.banner = {text:"YOU WON THE GOLDEN CAR!", sub:"It's waiting in your garage", t:3}; toast("Unlocked the secret Golden Car!"); }
+  else { addCoins(50); game.banner = {text:"Golden bonus!", sub:"+50 coins", t:2}; }
+  Sound.goldGet();
+}
+/* ---------- the sinkhole (about 1 run in 25): the road cracks open and swallows you ---------- */
+function startSink(){ game.state = "monster"; game.mt = 0; game.sinkX = game.px; game.sinkY = PY - 10; Sound.sinkhole(); document.body.classList.add("kraken"); }
+function updateSink(dt){
+  game.mt += dt;
+  game.speed = Math.max(0, game.speed - 900*dt);
+  game.cars.forEach(car => car.y += (game.speed - car.v*Math.min(1, game.speed/400))*dt*.5);
+  if (game.mt > 1.6 && game.mt < 2.8 && Math.random() < dt*30) game.parts.push({x:game.sinkX + (Math.random() - .5)*120, y:game.sinkY + (Math.random() - .5)*60, vx:(Math.random() - .5)*60, vy:-40, life:.6, col: Math.random() < .5 ? "#5a4a3a" : "#3a3c44"});
+  if (game.mt >= 3.6){ document.body.classList.remove("kraken"); game.monsterEnd = true; endRun(); }
+}
+function drawSink(){
+  const t = game.mt, x = game.sinkX, y = game.sinkY;
+  // cracks spreading across the road
+  const k = Math.min(1, t/1.2);
+  ctx.strokeStyle = "rgba(10,8,8,.85)"; ctx.lineWidth = 2;
+  for (let i = 0; i < 9; i++){ const a = i*Math.PI*2/9 + .3, len = (60 + (i*37) % 70)*k; ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(a)*len*.5 + ((i*13) % 9) - 4, y + Math.sin(a)*len*.5*.7); ctx.lineTo(x + Math.cos(a)*len, y + Math.sin(a)*len*.7); ctx.stroke(); }
+  // the hole opens wider than the road
+  if (t > 1.2){ const r = Math.min(1, (t - 1.2)/.6); const rx = 40 + r*(ROAD_W*.62), ry = 30 + r*90;
+    ctx.fillStyle = "#3a2e24"; ctx.beginPath(); ctx.ellipse(x, y, rx + 6, ry + 6, 0, 0, Math.PI*2); ctx.fill();
+    const g = ctx.createRadialGradient(x, y, 4, x, y, rx); g.addColorStop(0, "#000000"); g.addColorStop(1, "#1a120c"); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI*2); ctx.fill(); }
+}
+
+/* ---------- road worlds ---------- */
+const ROUND_LAND = [{grass:"#4a8a3a", tree:"#2f6a2a", road:"#3a3c44"}, {grass:"#9a8a3a", tree:"#b8602a", road:"#3a3c44"}, {grass:"#c8a868", tree:"#6a8a3a", road:"#44403a"},
+  {grass:"#dfe8f0", tree:"#2a5a3a", road:"#3e4048"}, {grass:"#22341e", tree:"#14240f", road:"#24262e"}];
+const hash = (k, s) => { let h = Math.imul(k | 0, 374761393) + Math.imul(s | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return (h ^ (h >>> 16)) >>> 0; };
+// things beside the road, placed the same way every time for a given stretch
+function roadside(seg, draw){ const sc = game.scroll, k0 = Math.floor((sc - GH)/seg) - 1, k1 = Math.floor(sc/seg) + 1;
+  for (let k = k0; k <= k1; k++){ const y = sc - k*seg; for (const side of [0, 1]){ const h = hash(k, side + 7), room = side ? GW - (ROAD_X + ROAD_W) - 14 : ROAD_X - 14; if (room < 12) continue; const x = side ? ROAD_X + ROAD_W + 10 + (h % Math.max(1, room)) : 4 + (h % Math.max(1, room)); draw(x, y, h, side); } } }
+function lanes(line, edge, dash){
+  for (let i = 1; i < LANES; i++){ const x = ROAD_X + i*LANE_W - 1; const off = game.scroll % 48; for (let y = -48 + off; y < GH; y += 48) { ctx.fillStyle = line; ctx.fillRect(x, y, 2, dash || 22); } }
+  ctx.fillStyle = edge; ctx.fillRect(ROAD_X + 3, 0, 3, GH); ctx.fillRect(ROAD_X + ROAD_W - 6, 0, 3, GH);
+}
+const WORLD_DRAW = {
+  highway(){
+    const L = ROUND_LAND[(game.round - 1) % ROUND_LAND.length];
+    ctx.fillStyle = L.grass; ctx.fillRect(0, 0, GW, GH);
+    roadside(70, (x, y, h) => { const r = 9 + h % 9; if (h % 5 === 0){ ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.fillRect(x - 6, y - 4, 14, 10); ctx.fillStyle = "#7a7e88"; ctx.fillRect(x - 5, y - 6, 12, 10); return; }
+      circ(x + 3, y + 4, r, "rgba(0,0,0,.18)"); circ(x, y, r, L.tree); circ(x - r*.3, y - r*.3, r*.55, shade(L.tree, .18)); });
+    ctx.fillStyle = shade(L.road, .25); ctx.fillRect(ROAD_X - 8, 0, ROAD_W + 16, GH);
+    ctx.fillStyle = L.road; ctx.fillRect(ROAD_X, 0, ROAD_W, GH);
+    lanes("rgba(240,240,240,.75)", "rgba(255,210,80,.8)");
+  },
+  "Neon Expressway"(){
+    ctx.fillStyle = "#120a22"; ctx.fillRect(0, 0, GW, GH);
+    roadside(64, (x, y, h) => { const w = 24 + h % 30, hh = 30 + h % 40, col = ["#ff4fa3","#2de2e6","#b77bff","#ffd34d"][h % 4]; ctx.fillStyle = "#1e1236"; ctx.fillRect(x - w/2, y - hh/2, w, hh); ctx.strokeStyle = col; ctx.globalAlpha = .6; ctx.lineWidth = 1.5; ctx.strokeRect(x - w/2 + 2, y - hh/2 + 2, w - 4, hh - 4); ctx.globalAlpha = 1; });
+    ctx.fillStyle = "#16121e"; ctx.fillRect(ROAD_X, 0, ROAD_W, GH);
+    roadside(110, () => {});
+    { const off = game.scroll % 160; for (let y = -160 + off; y < GH; y += 160){ ctx.fillStyle = "rgba(255,79,163,.06)"; ctx.beginPath(); ctx.ellipse(ROAD_X + ROAD_W*.3, y, 30, 10, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = "rgba(45,226,230,.06)"; ctx.beginPath(); ctx.ellipse(ROAD_X + ROAD_W*.72, y + 70, 26, 8, 0, 0, Math.PI*2); ctx.fill(); } }
+    ctx.save(); ctx.shadowBlur = 6; ctx.shadowColor = "#ff4fa3"; ctx.fillStyle = "#ff4fa3"; ctx.fillRect(ROAD_X - 4, 0, 3, GH); ctx.shadowColor = "#2de2e6"; ctx.fillStyle = "#2de2e6"; ctx.fillRect(ROAD_X + ROAD_W + 1, 0, 3, GH); ctx.restore();
+    lanes("rgba(45,226,230,.55)", "rgba(255,79,163,.5)");
+  },
+  "Space Highway"(){
+    ctx.fillStyle = "#04030c"; ctx.fillRect(0, 0, GW, GH);
+    roadside(40, (x, y, h) => { ctx.fillStyle = h % 3 ? "rgba(255,255,255,.7)" : "rgba(170,200,255,.8)"; ctx.fillRect(x, y, h % 4 === 0 ? 2 : 1, h % 4 === 0 ? 2 : 1); });
+    roadside(420, (x, y, h, side) => { if (h % 2) return; const r = 14 + h % 18; circ(x, y, r, ["#7a5ab0","#3a8ab8","#c86a3a"][h % 3]); circ(x - r*.3, y - r*.3, r*.4, "rgba(255,255,255,.15)"); });
+    ctx.fillStyle = "rgba(20,30,70,.85)"; ctx.fillRect(ROAD_X, 0, ROAD_W, GH);
+    ctx.fillStyle = "#2de2e6"; ctx.fillRect(ROAD_X - 3, 0, 2, GH); ctx.fillRect(ROAD_X + ROAD_W + 1, 0, 2, GH);
+    lanes("rgba(150,220,255,.5)", "rgba(45,226,230,.6)", 14);
+  },
+  "Golden Skyway"(){
+    ctx.fillStyle = "#7ab8e8"; ctx.fillRect(0, 0, GW, GH);
+    roadside(90, (x, y, h) => { const r = 14 + h % 12; circ(x, y, r, "rgba(255,255,255,.85)"); circ(x + r*.8, y + 3, r*.75, "rgba(255,255,255,.85)"); circ(x - r*.7, y + 4, r*.65, "rgba(255,255,255,.85)"); });
+    ctx.fillStyle = "#c8a040"; ctx.fillRect(ROAD_X - 8, 0, ROAD_W + 16, GH); ctx.fillStyle = "#e8e4dc"; ctx.fillRect(ROAD_X, 0, ROAD_W, GH);
+    { const off = game.scroll % 60; for (let y = -60 + off; y < GH; y += 60){ ctx.fillStyle = "#ffd34d"; ctx.fillRect(ROAD_X - 8, y, 8, 30); ctx.fillRect(ROAD_X + ROAD_W, y, 8, 30); } }
+    lanes("rgba(200,150,30,.85)", "#2f5bd1");
+  },
+  "Gold Rush Road"(){
+    ctx.fillStyle = "#e8c070"; ctx.fillRect(0, 0, GW, GH);
+    roadside(80, (x, y, h) => { if (h % 3 === 0){ ctx.fillStyle = "#4a8a3a"; ctx.fillRect(x - 3, y - 12, 6, 24); ctx.fillRect(x - 10, y - 4, 7, 4); ctx.fillRect(x + 3, y - 2, 7, 4); } else { circ(x, y, 3, "#ffd34d"); circ(x - 1, y - 1, 1.2, "#fff3b0"); } });
+    ctx.fillStyle = "#b8945a"; ctx.fillRect(ROAD_X - 8, 0, ROAD_W + 16, GH); ctx.fillStyle = "#6a5a4a"; ctx.fillRect(ROAD_X, 0, ROAD_W, GH);
+    lanes("rgba(255,240,200,.8)", "#ffd34d");
+  },
+};
+function drawBG(){ const th = themeFor(curCar()); (WORLD_DRAW[th ? th.world : "highway"] || WORLD_DRAW.highway)(); }
+
+/* ---------- drawing ---------- */
+function drawTraffic(car){
+  ctx.save(); ctx.translate(Math.round(car.x), Math.round(car.y));
+  if (car.changing || car.change){ /* a steady blinker arrow shows which way it's moving over */ if (car.change){ ctx.fillStyle = "#ffb23f"; const s = car.change.dir; ctx.beginPath(); ctx.moveTo(s*(car.w/2 + 9), -car.l/2 + 8); ctx.lineTo(s*(car.w/2 + 3), -car.l/2 + 3); ctx.lineTo(s*(car.w/2 + 3), -car.l/2 + 13); ctx.fill(); } }
+  if (car.body === "truck"){
+    const W2 = car.w/2, L2 = car.l/2;
+    ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.fillRect(-W2 + 2, -L2 + 4, car.w, car.l);
+    ctx.fillStyle = "#111116"; [[-W2, -L2 + 12], [W2 - 4, -L2 + 12], [-W2, L2 - 14], [W2 - 4, L2 - 14], [-W2, L2 - 28], [W2 - 4, L2 - 28]].forEach(([x, y]) => ctx.fillRect(x - 1, y - 5, 6, 10));
+    ctx.fillStyle = car.main; ctx.beginPath(); ctx.roundRect(-W2 + 1, -L2, car.w - 2, 24, 4); ctx.fill();
+    ctx.fillStyle = "#1c2a3e"; ctx.fillRect(-W2 + 5, -L2 + 4, car.w - 10, 6);
+    ctx.fillStyle = "#e8e8ec"; ctx.fillRect(-W2, -L2 + 26, car.w, car.l - 26); ctx.fillStyle = "#c8c8d0"; for (let i = 0; i < 5; i++) ctx.fillRect(-W2 + 2, -L2 + 34 + i*12, car.w - 4, 1);
+    ctx.fillStyle = "#fff6c8"; ctx.fillRect(-W2 + 3, -L2 + 1, 5, 2); ctx.fillRect(W2 - 8, -L2 + 1, 5, 2); ctx.fillStyle = "#e0263a"; ctx.fillRect(-W2 + 1, L2 - 3, 5, 2); ctx.fillRect(W2 - 6, L2 - 3, 5, 2);
+  } else paintCar(ctx, car, car.gold ? {glow:true, glowCol:"#ffd34d"} : {});
+  ctx.restore();
+}
+function drawCoin(k){ const w = Math.max(1, Math.abs(Math.cos(k.spin))*7); ctx.fillStyle = "#8a5a10"; ctx.beginPath(); ctx.ellipse(k.x, k.y, w + 1, 8, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = "#ffc83a"; ctx.beginPath(); ctx.ellipse(k.x, k.y, w, 7, 0, 0, Math.PI*2); ctx.fill(); if (w > 3){ ctx.fillStyle = "#fff3b0"; ctx.fillRect(k.x - 1, k.y - 5, 2, 3); } }
+function textFont(size, kind){ return kind === "num" ? `${size}px "Press Start 2P", "Pixelify Sans", monospace` : `700 ${size}px "Pixelify Sans", "Courier New", monospace`; }
+function text(str, x, y, size, col, align, kind){
+  ctx.font = textFont(size, kind); ctx.textAlign = align || "left";
+  ctx.lineJoin = "round"; ctx.lineWidth = kind === "num" ? 3 : 3.5; ctx.strokeStyle = "rgba(8,8,16,.9)"; ctx.strokeText(str, x, y);
+  ctx.fillStyle = col; ctx.fillText(str, x, y);
+}
+function draw(){
+  ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  if (game.state === "monster" && game.mt < 2.4){ const q = Math.min(3, game.mt*2); ctx.translate((Math.random() - .5)*q, (Math.random() - .5)*q); }
+  drawBG();
+  ctx.fillStyle = "rgba(20,18,18,.35)"; game.skids.forEach(s => { ctx.globalAlpha = s.a; ctx.fillRect(s.x - 2, s.y - 3, 4, 6); }); ctx.globalAlpha = 1;
+  if (game.state === "monster") drawSink();
+  game.coins.forEach(drawCoin);
+  game.cars.forEach(drawTraffic);
+  drawSmoke();
+  const c = curCar();
+  if (!(game.state === "over" && game.monsterEnd)){
+    let s = 1, rot = game.yaw;
+    if (game.state === "monster" && game.mt > 2){ const k = Math.min(1, (game.mt - 2)/1.2); s = 1 - k*.85; rot += k*5; }
+    if (game.state === "over" && !game.monsterEnd) rot += .5;
+    ctx.save(); ctx.translate(game.px, PY);
+    if (game.state !== "monster"){ ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 2, 24, 38, 0, 0, Math.PI*2); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fill(); }
+    ctx.rotate(rot); ctx.scale(s, s); paintCar(ctx, c, {glow: c.tier >= 3}); ctx.restore();
+  }
+  game.parts.forEach(p => { ctx.globalAlpha = Math.max(0, Math.min(1, p.life*2)); ctx.fillStyle = p.col; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }); ctx.globalAlpha = 1;
+  game.texts.forEach(x => { ctx.globalAlpha = Math.max(0, Math.min(1, (1.2 - x.t)*3)); text(x.txt, x.x, x.y - x.t*24, 11, x.col, "center"); }); ctx.globalAlpha = 1;
+  // HUD
+  { const L = 10, top = 22;
+    ctx.fillStyle = "rgba(8,8,16,.45)"; ctx.fillRect(0, 0, GW, 52);
+    text("ROUND " + game.round, L, top, 10, "#ffd27a", "left", "num");
+    ctx.fillStyle = "rgba(0,0,0,.4)"; ctx.fillRect(L, top + 7, 100, 5); ctx.fillStyle = "#ff8a2a"; ctx.fillRect(L, top + 7, 100*Math.min(1, game.roundDist/ROUND_LEN(game.round)), 5);
+    if (GW >= 420) text("BEST " + fmt(Math.max(state.best, Math.floor(game.dist))) + "m", GW/2, top, 8, "#e0e4f5", "center", "num");
+    text(fmt(Math.floor(game.dist)) + "m", GW - 10, top, 12, "#ffffff", "right", "num");
+    const ct = fmt(state.coins); ctx.font = textFont(10, "num"); const cw = ctx.measureText(ct).width;
+    drawCoin({x: GW - 10 - cw - 11, y: top + 14, spin:0}); text(ct, GW - 10, top + 19, 10, "#ffe08a", "right", "num");
+    if (game.state !== "ready") text("+" + game.runCoins + " THIS RUN", GW - 10, top + 33, 6, "#e0e4f5", "right", "num"); }
+  const oy = Math.round(GH*.32);
+  if (game.banner && (game.state === "running" || game.state === "monster")){ const a = Math.min(1, game.banner.t*2); ctx.globalAlpha = a; text(game.banner.text, GW/2, oy, 26, game.banner.text.includes("GOLD") ? "#ffd34d" : "#ffb347", "center"); text(game.banner.sub, GW/2, oy + 22, 12, "#f4f0e8", "center"); ctx.globalAlpha = 1; }
+  if (game.state === "monster" && game.mt > .2 && !game.banner) text("SINKHOLE!", GW/2, oy, 30, "#ff6a4a", "center");
+  if (game.state === "ready"){
+    ctx.fillStyle = "rgba(8,8,20,.5)"; ctx.fillRect(0, 0, GW, GH);
+    text("TRAFFIC RUNNER", GW/2, oy, GW < 420 ? 28 : 34, "#ff8a2a", "center");
+    text(isPhone() ? "Hold your finger down and swipe to steer" : "Move your mouse left and right to steer", GW/2, oy + 30, 13, "#f4f0e8", "center");
+    text("Weave through traffic · grab coins · open chests at 100", GW/2, oy + 50, 11, "#b8bcd8", "center");
+    text(isPhone() ? "Tap to start" : "Click or press Space to start", GW/2, oy + 78, 14, "#7dffe0", "center");
+  }
+  if (game.state === "over"){
+    ctx.fillStyle = game.monsterEnd ? "rgba(4,3,2,.92)" : "rgba(8,8,20,.6)"; ctx.fillRect(0, 0, GW, GH);
+    if (game.monsterEnd){ text("SWALLOWED BY", GW/2, oy - 14, 18, "#ff8a6a", "center"); text("A SINKHOLE!", GW/2, oy + 14, 28, "#ff5a3a", "center"); }
+    else text("CRASHED!", GW/2, oy + 6, 32, "#ff6a4a", "center");
+    text(fmt(Math.floor(game.dist)) + "m", GW/2, oy + 44, 20, "#ffffff", "center", "num");
+    text(`ROUND ${game.round}  ·  +${game.runCoins} COINS`, GW/2, oy + 66, 9, "#ffe08a", "center", "num");
+    if (game.newBest) text("New best distance!", GW/2, oy + 88, 14, "#7dffe0", "center");
+    if (game.goldCaught && !TEST.on) text("You won the Golden Car!", GW/2, oy + 106, 14, "#ffd34d", "center");
+    text(state.coins >= 100 ? (isFS() ? "Tap Exit to open a chest" : "You can open a chest below") : (100 - state.coins) + " coins until your next chest", GW/2, oy + 126, 12, "#f4f0e8", "center");
+    text(isPhone() ? "Tap to drive again" : "Click or press Space to drive again", GW/2, oy + 148, 13, "#c8cce8", "center");
+  }
+  if (game.paused){ ctx.fillStyle = "rgba(8,8,20,.5)"; ctx.fillRect(0, 0, GW, GH); text("PAUSED", GW/2, oy, 28, "#f4f0e8", "center"); text("Tap or press P to continue", GW/2, oy + 24, 12, "#b8bcd8", "center"); }
+}
+let last = performance.now();
+function frame(now){
+  const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;
+  update(dt); draw();
+  drawChest(false, now/1000);
+  if (cfOpen){ cfDraw(dt); drawChest(cfRevealed, now/1000, cfChestCtx); cfCharCtx.clearRect(0, 0, 400, 400); if (cfRevealed && lastPull) drawChar(cfCharCtx, lastPull, {x:200, y:300, s:12, t:now/1000}); }
+  if (Math.floor(now/120) !== frame.k){ frame.k = Math.floor(now/120); renderNow(); }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- controls ---------- */
+const keys = {L:false, R:false};
+const typing = () => { const a = document.activeElement; return a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.tagName === "BUTTON"); };
+function go(){
+  if (cfOpen) return;
+  enterFS();
+  if (game.state === "monster") return;
+  if (game.state !== "running"){ if (game.state === "over" && game.t - game.overT < .7) return; startRun(); return; }
+  if (game.paused) game.paused = false;
+}
+document.addEventListener("keydown", e => {
+  if (cfOpen){ if (e.key === "Escape") closeChest(); return; }
+  if (typing()) return;
+  if (e.code === "ArrowLeft" || e.code === "KeyA"){ keys.L = true; e.preventDefault(); }
+  else if (e.code === "ArrowRight" || e.code === "KeyD"){ keys.R = true; e.preventDefault(); }
+  else if (e.code === "Space" || e.code === "Enter"){ e.preventDefault(); if (!e.repeat) go(); }
+  else if (e.code === "KeyP" && game.state === "running") game.paused = !game.paused;
+});
+document.addEventListener("keyup", e => { if (e.code === "ArrowLeft" || e.code === "KeyA") keys.L = false; if (e.code === "ArrowRight" || e.code === "KeyD") keys.R = false; });
+// mouse: the car follows the pointer. Finger: hold and swipe, and the car moves with your swipe.
+const toWorldX = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left)/r.width*GW; };
+let touchX = null;
+cv.addEventListener("pointerdown", e => { e.preventDefault(); Sound.wake();
+  if (e.pointerType !== "mouse"){ touchX = toWorldX(e); cv.setPointerCapture?.(e.pointerId); }
+  else if (game.state === "running") game.tx = toWorldX(e);
+  if (game.state !== "running" || game.paused) go(); });
+cv.addEventListener("pointermove", e => {
+  if (e.pointerType === "mouse"){ if (game.state === "running" || game.state === "ready") game.tx = toWorldX(e); return; }
+  if (touchX === null) return; const x = toWorldX(e); game.tx += (x - touchX)*1.25; touchX = x; });
+const endTouch = e => { if (e.pointerType !== "mouse") touchX = null; };
+cv.addEventListener("pointerup", endTouch); cv.addEventListener("pointercancel", endTouch);
+cv.addEventListener("contextmenu", e => e.preventDefault());
+const sideways = matchMedia("(pointer:coarse) and (orientation:landscape) and (max-height:520px)");
+const onSideways = () => { if (sideways.matches && game.state === "running") game.paused = true; };
+sideways.addEventListener ? sideways.addEventListener("change", onSideways) : sideways.addListener(onSideways);
+document.addEventListener("visibilitychange", () => { if (document.hidden && game.state === "running") game.paused = true; });
+
+/* ============================== BOOT ============================== */
+function bootLocal(){
+  const list = Saves.profiles();
+  if (!LS.get(PREFIX+"profiles")) Saves.setProfiles(list);
+  const cur = LS.get(PREFIX+"current");
+  Saves.profile = list.includes(cur) ? cur : list[0];
+  state = Saves.loadLocal(Saves.profile);
+  setSaveStatus("local");
+}
+function authError(e){
+  const m = {
+    "auth/invalid-credential":"That email and password don't match. Check them or reset your password.",
+    "auth/wrong-password":"That email and password don't match. Check them or reset your password.",
+    "auth/user-not-found":"No account uses that email yet. Choose Create account.",
+    "auth/email-already-in-use":"An account already uses that email. Choose Log in instead.",
+    "auth/weak-password":"Use a password with at least 6 characters.",
+    "auth/invalid-email":"Enter a full email address, like name@example.com.",
+    "auth/missing-password":"Enter your password.",
+    "auth/too-many-requests":"Too many tries. Wait a few minutes, then try again.",
+    "auth/popup-closed-by-user":"Google sign-in was closed before it finished.",
+    "auth/popup-blocked":"Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.",
+    "auth/unauthorized-domain":"This website isn't on the Firebase list of authorized domains yet (Authentication > Settings).",
+    "auth/operation-not-allowed":"This sign-in method isn't turned on in Firebase yet (Authentication > Sign-in method).",
+  };
+  return m[e && e.code] || ("Sign-in didn't work: " + ((e && e.message) || "unknown error"));
+}
+/* ---------- daily leaderboard (resets at midnight US Eastern) ---------- */
+const LB = { day:null, unsub:null, rows:[], myBest:0 };
+function todayKey(){ return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()); }
+function resetText(){
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",minute:"numeric",hourCycle:"h23"}).formatToParts(new Date()).map(p=>[p.type,p.value]));
+  const left = 24*60 - (+parts.hour*60 + +parts.minute), h = Math.floor(left/60), m = left%60;
+  return "Resets in " + (h ? h + "h " : "") + m + "m (midnight Eastern)";
+}
+const myDailyRef = () => Saves.fs.collection("trafficdaily").doc(LB.day).collection("scores").doc(Saves.uid);
+function lbSubscribe(){
+  if (!Saves.fs) return;
+  const day = todayKey();
+  if (LB.day === day && LB.unsub) return;
+  if (LB.unsub) LB.unsub();
+  LB.day = day; LB.rows = []; LB.myBest = 0; renderLB();
+  LB.unsub = Saves.fs.collection("trafficdaily").doc(day).collection("scores").orderBy("best","desc").limit(10).onSnapshot(
+    snap => { LB.rows = snap.docs.map(d => Object.assign({id:d.id}, d.data())); $("lbMsg").textContent = ""; renderLB(); },
+    () => { $("lbMsg").textContent = "The leaderboard couldn't load. Check that the newest Firestore rules are published."; LB.unsub = null; });
+  loadMyDaily();
+}
+async function loadMyDaily(){
+  if (Saves.mode !== "fire" || !LB.day) return;
+  try { const d = await myDailyRef().get(); LB.myBest = d.exists ? (d.data().best || 0) : 0; LB.myChar = d.exists ? d.data().char : null; } catch {}
+  renderLB();
+}
+async function submitScore(dist){
+  if (Saves.mode !== "fire" || !Saves.fs || dist <= 0) return;
+  lbSubscribe();
+  if (dist <= LB.myBest) return;
+  LB.myBest = dist; LB.myChar = curCar().id; renderLB();
+  try { await myDailyRef().set({name: state.name || "Driver", best: dist, char: curCar().id, at: Date.now()}); toast("New best today: " + fmt(dist) + " m"); }
+  catch { $("lbMsg").textContent = "Your score couldn't post to the leaderboard. Check that the newest Firestore rules are published."; }
+}
+function renderLB(){
+  const list = $("lbList"); list.textContent = "";
+  $("lbReset").textContent = Saves.fs ? resetText() : "";
+  if (!Saves.fs){ const li = document.createElement("li"); li.className = "empty"; li.textContent = "The leaderboard turns on once player accounts are set up."; list.append(li); $("lbYou").textContent = ""; return; }
+  if (!LB.rows.length){ const li = document.createElement("li"); li.className = "empty"; li.textContent = "No runs yet today. Post the first score!"; list.append(li); }
+  LB.rows.forEach((r, i) => {
+    const li = document.createElement("li"); if (Saves.mode === "fire" && r.id === Saves.uid) li.className = "me";
+    const rk = document.createElement("span"); rk.className = "rk"; rk.textContent = i + 1;
+    const cv = document.createElement("canvas"); cv.width = 144; cv.height = 80;
+    const ch0 = CHARS[+r.char] || CHARS[0];
+    const nm = document.createElement("span"); nm.className = "who2";
+    const n1 = document.createElement("span"); n1.className = "nm"; n1.textContent = cleanName(r.name) || "Driver";
+    const n2 = document.createElement("span"); n2.className = "car"; n2.textContent = ch0.name; if (isCreator(ch0)) n2.classList.add("creator");
+    n2.style.color = isCreator(ch0) ? "" : TIERS[ch0.tier].color; nm.append(n1, n2);
+    const sc = document.createElement("span"); sc.className = "sc"; sc.textContent = fmt(Math.floor(+r.best || 0)) + " m";
+    li.append(rk, cv, nm, sc); list.append(li);
+    const ch = CHARS[+r.char] || CHARS[0];
+    drawChar(setupCanvas(cv), ch, {x:72, y:70, s:3.4, t:0, glow:false});
+  });
+  const you = $("lbYou"); you.textContent = "";
+  if (Saves.mode === "fire"){
+    const inTop = LB.rows.some(r => r.id === Saves.uid);
+    you.innerHTML = LB.myBest ? `Your best today: <b>${fmt(LB.myBest)} m</b>${inTop ? "" : " (not in the top 10 yet)"}` : "Finish a run to post your score for today.";
+  } else {
+    const t = document.createElement("span"); t.textContent = "Only signed-in players appear here.";
+    const b = document.createElement("button"); b.className = "btn small"; b.type = "button"; b.textContent = "Sign up to compete";
+    b.addEventListener("click", () => goAuth("signup"));
+    you.append(t, b);
+  }
+}
+setInterval(() => { if (Saves.fs){ if (todayKey() !== LB.day){ lbSubscribe(); } else $("lbReset").textContent = resetText(); } }, 30000);
+function goAuth(mode){
+  exitFS(); setAuthMode(mode); $("overCta").hidden = true;
+  $("acct").scrollIntoView({behavior:"smooth", block:"start"});
+  setTimeout(() => $("authEmail").focus({preventScroll:true}), 450);
+}
+function defaultName(u){
+  const first = cleanName(((u && u.displayName) || "").split(" ")[0]);
+  return first || ("Driver" + Math.floor(1000 + Math.random()*9000));
+}
+$("nameForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const n = cleanName($("nameInput").value);
+  if (!n){ toast("Use letters or numbers for your name"); return; }
+  state.name = n; $("nameInput").value = n; Saves.save(true); toast("Leaderboard name saved");
+  if (Saves.mode === "fire" && LB.myBest > 0){ try { await myDailyRef().set({name:n, best:LB.myBest, char: LB.myChar ?? state.selected, at:Date.now()}); } catch {} }
+});
+
+let authMode = "signup";
+function setAuthMode(m){
+  authMode = m;
+  $("tabSignup").setAttribute("aria-pressed", m === "signup");
+  $("tabLogin").setAttribute("aria-pressed", m === "login");
+  $("authSubmit").textContent = m === "signup" ? "Create my free account" : "Log in";
+  $("authPass").setAttribute("autocomplete", m === "signup" ? "new-password" : "current-password");
+  $("authReset").hidden = m === "signup";
+  $("authMsg").textContent = "";
+}
+$("ocAgain").addEventListener("click", () => { $("overCta").hidden = true; startRun(); });
+function bootFirebase(){
+  const cfg = window.FIREBASE_CONFIG;
+  if (!window.firebase || !cfg || !cfg.apiKey || cfg.apiKey.startsWith("PASTE")){ setSaveStatus("nosetup"); return; }
+  let auth, fs;
+  try { firebase.initializeApp(cfg); auth = firebase.auth(); fs = firebase.firestore(); }
+  catch (e) { setSaveStatus("nosetup"); return; }
+  Saves.auth = auth; Saves.fs = fs;
+  renderAccount(); lbSubscribe();
+  const msg = t => { $("authMsg").textContent = t; };
+  const creds = () => [$("authEmail").value.trim(), $("authPass").value];
+  $("authBox").addEventListener("submit", async e => {
+    e.preventDefault(); const [em, pw] = creds();
+    if (authMode === "signup"){
+      msg("Creating your account…");
+      try { await auth.createUserWithEmailAndPassword(em, pw); msg(""); } catch (err) { msg(authError(err)); }
+    } else {
+      msg("Logging in…");
+      try { await auth.signInWithEmailAndPassword(em, pw); msg(""); } catch (err) { msg(authError(err)); }
+    }
+  });
+  $("tabSignup").addEventListener("click", () => setAuthMode("signup"));
+  $("tabLogin").addEventListener("click", () => setAuthMode("login"));
+  $("ocSignup").addEventListener("click", () => goAuth("signup"));
+  $("ocLogin").addEventListener("click", () => goAuth("login"));
+  $("authGoogle").addEventListener("click", async () => {
+    msg("");
+    try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); } catch (err) { msg(authError(err)); }
+  });
+  $("authReset").addEventListener("click", async () => {
+    const em = $("authEmail").value.trim();
+    if (!em){ msg("Type your email above, then choose Forgot password."); return; }
+    try { await auth.sendPasswordResetEmail(em); msg("Check your email for a link to reset your password."); } catch (err) { msg(authError(err)); }
+  });
+  $("logoutBtn").addEventListener("click", () => auth.signOut());
+
+  auth.onAuthStateChanged(async u => {
+    if (!u){
+      if (Saves.mode === "fire"){ if (game.state === "running") endRun(); Saves.mode = "local"; Saves.uid = null; LB.myBest = 0; bootLocal(); renderAll(); renderLB(); toast("Logged out"); }
+      else setSaveStatus("local");
+      renderAccount(); return;
+    }
+    setSaveStatus("saving"); $("saveText").textContent = "Loading your account…";
+    try {
+      const snap = await fs.collection("trafficgarage").doc(u.uid).get();
+      const inRun = game.state === "running" ? game.runCoins : 0;
+      Saves.uid = u.uid; Saves.mode = "fire";
+      if (snap.exists){
+        state = sanitize(snap.data()); state.coins += inRun; state.lifetimeCoins += inRun;
+        setSaveStatus("ok"); if (inRun) Saves.save();
+      } else {
+        Saves.save(true);   // first login: carry this device's progress into the new account
+      }
+      $("whoName").textContent = u.displayName || u.email || "Player"; $("authPass").value = "";
+      if (!state.name){ state.name = defaultName(u); Saves.save(); }
+      $("nameInput").value = state.name;
+      lbSubscribe(); loadMyDaily();
+      renderAll(); toast("Welcome, " + (u.displayName || u.email || "driver"));
+    } catch (e) {
+      Saves.mode = "local"; setSaveStatus("fallback"); renderAccount();
+      msg("Logged in, but your save couldn't load. Check the Firestore rules, then reload.");
+    }
+  });
+}
+bootLocal();
+renderSoundButtons();
+renderLB();
+resetRun(); game.state = "ready";
+renderAll();
+requestAnimationFrame(frame);
+bootFirebase();
+})();
+</script>
+</body></html>
