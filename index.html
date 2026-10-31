@@ -229,6 +229,7 @@ kbd{font-family:var(--display);background:var(--night);border:1px solid var(--li
 .btn[disabled]{background:#3a4456;color:#8a94a8;border-bottom-color:#2a3242;cursor:not-allowed;filter:none;transform:none}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);border-bottom:3px solid var(--line)}
 .btn.small{padding:7px 12px;font-size:14px}
+.btn.epic-btn{background:#9a5ae0;color:#fff;border-bottom-color:#5a2a9a}
 
 /* chest */
 .chest-stage{position:relative;display:grid;place-items:center;min-height:210px;border-radius:12px;background:radial-gradient(circle at 50% 70%, #3a2a24 0, #14161e 70%);overflow:hidden}
@@ -375,13 +376,13 @@ window.FIREBASE_CONFIG = {
   <div class="grid2">
     <section class="panel" aria-labelledby="chestH">
       <h2 id="chestH">Garage Chest</h2>
-      <p class="sub">Save up 100 coins and open a chest for a random car. Duplicates pay back coins.</p>
+      <p class="sub">The Basic Chest (500 coins) has normal odds. The Epic Chest (1,000 coins) is much more likely to give a Rare, Epic, Legendary or Mythic car. Duplicates pay back coins.</p>
       <div class="chest-stage" id="chestStage">
         <canvas id="chestCv" width="300" height="300"></canvas>
       </div>
       <div class="progress" aria-hidden="true"><i id="chestBar"></i></div>
       <div class="chest-row">
-        <button class="btn" id="openChest" type="button">Open chest · 100</button>
+        <button class="btn" id="openChest" type="button">Basic Chest · 500</button><button class="btn epic-btn" id="openEpic" type="button">Epic Chest · 1,000</button>
         <span class="sub" id="chestHint"></span>
       </div>
     </section>
@@ -391,7 +392,7 @@ window.FIREBASE_CONFIG = {
       <p class="sub">Rare and better cars have their own exhaust. Mythic cars drive on their own roads, and Drift King drifts. The Secret car only comes from catching the Golden Car on the highway.</p>
       <div class="tablewrap">
         <table class="odds">
-          <thead><tr><th>Rarity</th><th>Cars</th><th>Chest odds</th><th>Dupe refund</th><th>Found</th></tr></thead>
+          <thead><tr><th>Rarity</th><th>Cars</th><th>Basic chest</th><th>Epic chest</th><th>Dupe refund</th><th>Found</th></tr></thead>
           <tbody id="oddsBody"></tbody>
         </table>
       </div>
@@ -442,7 +443,7 @@ window.FIREBASE_CONFIG = {
       <span class="cf-tier" id="cfTier"></span>
       <div class="cf-name" id="cfName"></div>
       <div class="cf-note" id="cfNote"></div>
-      <div class="cf-btns"><button class="btn big" id="cfRun" type="button">Drive this car</button><button class="btn ghost" id="cfAgain" type="button">Open another · 100</button><button class="btn ghost" id="cfClose" type="button">Close</button></div>
+      <div class="cf-btns"><button class="btn big" id="cfRun" type="button">Drive this car</button><button class="btn ghost" id="cfAgain" type="button">Open another</button><button class="btn ghost" id="cfClose" type="button">Close</button></div>
     </div>
   </div>
 </div>
@@ -453,12 +454,12 @@ window.FIREBASE_CONFIG = {
 "use strict";
 /* ============================== CARS ============================== */
 const TIERS = [
-  {key:"common",    name:"Common",    color:"#b9bcc9", weight:51.5,refund:10},
-  {key:"uncommon",  name:"Uncommon",  color:"#6fd36a", weight:25,  refund:15},
-  {key:"rare",      name:"Rare",      color:"#4aa8ff", weight:14,  refund:25},
-  {key:"epic",      name:"Epic",      color:"#b77bff", weight:6.5, refund:40},
-  {key:"legendary", name:"Legendary", color:"#ffb23f", weight:2,   refund:60},
-  {key:"mythic",    name:"Mythic",    color:"#ff5ea8", weight:1,   refund:100},
+  {key:"common",    name:"Common",    color:"#b9bcc9", weight:51.5,refund:50},
+  {key:"uncommon",  name:"Uncommon",  color:"#6fd36a", weight:25,  refund:75},
+  {key:"rare",      name:"Rare",      color:"#4aa8ff", weight:14,  refund:125},
+  {key:"epic",      name:"Epic",      color:"#b77bff", weight:6.5, refund:200},
+  {key:"legendary", name:"Legendary", color:"#ffb23f", weight:2,   refund:300},
+  {key:"mythic",    name:"Mythic",    color:"#ff5ea8", weight:1,   refund:500},
   {key:"secret",    name:"Secret",    color:"#ffd34d", weight:0,   refund:0},
 ];
 /* [tier, name, body, main color, accent, extras, exhaust]
@@ -551,6 +552,8 @@ const CAR_LIST = [
 ];
 const CHARS = CAR_LIST.map(([tier, name, body, main, accent, ex, smoke], id) => ({id, tier, name, body, main, accent, ex, smoke}));
 const GOLD_ID = CHARS.find(c => c.tier === 6).id;
+// two chests: the Basic Chest uses the normal odds, the Epic Chest costs double but finds rare cars far more often
+const CHESTS = {basic:{name:"Basic Chest", cost:500, w:[51.5, 25, 14, 6.5, 2, 1]}, epic:{name:"Epic Chest", cost:1000, w:[18, 30, 30, 14, 5.5, 2.5]}};
 const SORTED = [...CHARS].sort((a, b) => a.tier - b.tier || a.id - b.id);
 const DISPLAY_NO = {}; SORTED.forEach((c, i) => DISPLAY_NO[c.id] = i + 1);
 const carNo = c => "#" + String(DISPLAY_NO[c.id]).padStart(3, "0");
@@ -751,13 +754,14 @@ function renderHUD(){
   $("nowName").textContent = c.name; $("nowName").classList.toggle("creator", isCreator(c));
   $("nowName").style.color = TIERS[c.tier].color;
   $("nowPerk").textContent = TIERS[c.tier].name + " · " + (c.ex.includes("d") ? "Drifts · " : "") + SMOKE_NAME[c.smoke || ""] + (themeFor(c) ? " · " + themeFor(c).world : "");
-  $("chestBar").style.width = Math.min(100, state.coins) + "%";
-  const can = state.coins >= 100 && !chestBusy;
+  $("chestBar").style.width = Math.min(100, state.coins/CHESTS.epic.cost*100) + "%";
+  const can = state.coins >= CHESTS.basic.cost && !chestBusy;
+  $("openEpic").disabled = !(state.coins >= CHESTS.epic.cost && !chestBusy);
   $("openChest").disabled = !can;
-  $("chestHint").textContent = state.coins >= 100 ? (Math.floor(state.coins/100) + " chest" + (state.coins>=200?"s":"") + " ready") : (100 - state.coins) + " more coins to go";
+  $("chestHint").textContent = state.coins >= CHESTS.epic.cost ? "Epic Chest ready!" : state.coins >= CHESTS.basic.cost ? "Basic Chest ready · " + fmt(CHESTS.epic.cost - state.coins) + " more for an Epic Chest" : fmt(CHESTS.basic.cost - state.coins) + " more coins for a Basic Chest";
 }
 function renderOdds(){
-  $("oddsBody").innerHTML = TIERS.map((t,i)=>`<tr><td style="color:${t.color}">${t.name}</td><td>${tierCounts[i]}</td><td>${pct(t.weight)}</td><td>+${t.refund}</td><td>${tierFound(i)} / ${tierCounts[i]}</td></tr>`).join("");
+  $("oddsBody").innerHTML = TIERS.map((t,i)=>`<tr><td style="color:${t.color}">${t.name}</td><td>${tierCounts[i]}</td><td>${i < 6 ? pct(CHESTS.basic.w[i]) : "—"}</td><td>${i < 6 ? pct(CHESTS.epic.w[i]) : "—"}</td><td>+${t.refund}</td><td>${tierFound(i)} / ${tierCounts[i]}</td></tr>`).join("");
 }
 let filter = -1;
 function renderFilters(){
@@ -991,7 +995,8 @@ function drawChest(open, t, ctx = chestCtx){
   ctx.clearRect(0, 0, 300, 300);
   ctx.save(); ctx.translate(150, 172); ctx.scale(6, 6);
   const P = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
-  const RED = "#d0262e", RED2 = "#f04a4a", DK = "#7a1018", MET = "#c8ccd8", MET2 = "#8a8e9a";
+  const epic = ctx === cfChestCtx && chestKind === "epic";
+  const RED = epic ? "#6a2ab0" : "#d0262e", RED2 = epic ? "#9a5ae0" : "#f04a4a", DK = epic ? "#ffd34d" : "#7a1018", MET = "#c8ccd8", MET2 = "#8a8e9a";
   P(-13, 9, 26, 2, "rgba(0,0,0,.4)");
   P(-12, -2, 24, 11, RED); P(-12, -2, 24, 1, RED2); P(-12, 3, 24, 1, DK); P(-12, 7, 24, 1, DK);
   P(-4, 0, 8, 1, MET); P(-4, 5, 8, 1, MET);                                           // drawer handles
@@ -1009,9 +1014,10 @@ function drawChest(open, t, ctx = chestCtx){
   }
   ctx.restore();
 }
-function rollChar(){
-  let r = Math.random() * 100, tier = 0;
-  for (let i=0;i<TIERS.length;i++){ if (r < TIERS[i].weight){ tier=i; break; } r -= TIERS[i].weight; tier = i; }
+let chestKind = "basic";
+function rollChar(kind){
+  const w = CHESTS[kind || "basic"].w; let r = Math.random() * 100, tier = 0;
+  for (let i=0;i<w.length;i++){ if (r < w[i]){ tier=i; break; } r -= w[i]; tier = i; }
   const pool = CHARS.filter(c=>c.tier===Math.min(tier, 5));
   return pool[Math.floor(Math.random()*pool.length)];
 }
@@ -1045,12 +1051,13 @@ function cfDraw(dt){
     cfFxCtx.restore(); });
   cfParts = cfParts.filter(p => p.life > 0 && p.y < H + 40);
 }
-function openChest(){
+function openChest(kind){
+  kind = kind === "epic" ? "epic" : "basic"; const cost = CHESTS[kind].cost;
   if (TEST.on){ toast("Chests are paused in test drive mode"); return; }
-  if (chestBusy || state.coins < 100) return;
-  Sound.wake();
-  chestBusy = true; state.coins -= 100; state.chests++;
-  const c = rollChar(), isNew = !state.owned[c.id], t = TIERS[c.tier];
+  if (chestBusy || state.coins < cost) return;
+  Sound.wake(); chestKind = kind;
+  chestBusy = true; state.coins -= cost; state.chests++;
+  const c = rollChar(kind), isNew = !state.owned[c.id], t = TIERS[c.tier];
   state.owned[c.id] = (state.owned[c.id]||0) + 1;
   if (!isNew) state.coins += t.refund;
   Saves.save(true); renderHUD();
@@ -1081,8 +1088,8 @@ function openChest(){
     if (c.tier >= 5) $("cfTier").textContent = "Mythic!";
     cfBurst(c.tier);
     $("cfRun").hidden = state.selected === c.id;
-    $("cfAgain").hidden = state.coins < 100;
-    $("cfAgain").textContent = "Open another · 100";
+    $("cfAgain").hidden = state.coins < CHESTS[chestKind].cost;
+    $("cfAgain").textContent = "Open another " + CHESTS[chestKind].name + " · " + fmt(CHESTS[chestKind].cost);
     chestBusy = false;
     renderAll();
     setTimeout(() => ($("cfRun").hidden ? $("cfClose") : $("cfRun")).focus({preventScroll:true}), 400);
@@ -1093,10 +1100,11 @@ function closeChest(){
   cfOpen = false; $("chestFull").hidden = true; $("chestFull").classList.remove("revealed","shaking","glowing","quake","dim"); cfParts = []; cfTimers.forEach(clearTimeout);
   document.body.style.overflow = "";
 }
-$("openChest").addEventListener("click", openChest);
+$("openChest").addEventListener("click", () => openChest("basic"));
+$("openEpic").addEventListener("click", () => openChest("epic"));
 $("testOff").addEventListener("click", () => setTest(false));
 $("cfClose").addEventListener("click", closeChest);
-$("cfAgain").addEventListener("click", () => { cfOpen = false; openChest(); });
+$("cfAgain").addEventListener("click", () => { cfOpen = false; openChest(chestKind); });
 $("cfRun").addEventListener("click", () => { if (lastPull) selectChar(lastPull.id); closeChest(); });
 /* ============================== GAME ==============================
    Top-down 6-lane highway. Everyone drives up the screen; traffic is slower than you, so it comes
@@ -1106,7 +1114,8 @@ let GW = 560, GH = 470, SCALE = 1;
 const LANES = 6, LANE_W = 54, ROAD_W = LANES*LANE_W;
 const CAR_S = .85;                            // every car is drawn (and collides) at 85% size
 let ROAD_X = 0, PY = 0;
-function layout(){ ROAD_X = Math.round(GW/2 - ROAD_W/2); PY = GH - 96; }
+// your car sits about two-thirds of the way down a phone screen (room for your thumb underneath), a bit lower on computers
+function layout(){ ROAD_X = Math.round(GW/2 - ROAD_W/2); PY = Math.round(GH*(isFS() ? .66 : .74)); }
 const laneX = i => ROAD_X + LANE_W*(i + .5);
 const isPhone = () => matchMedia("(pointer:coarse)").matches && Math.min(innerWidth, innerHeight) < 700;
 const isFS = () => document.body.classList.contains("fs");
@@ -1463,7 +1472,7 @@ function draw(){
     ctx.fillStyle = "rgba(8,8,20,.5)"; ctx.fillRect(0, 0, GW, GH);
     text("TRAFFIC RUNNER", GW/2, oy, GW < 420 ? 28 : 34, "#ff8a2a", "center");
     text(isPhone() ? "Hold your finger down and swipe to steer" : "Move your mouse left and right to steer", GW/2, oy + 30, 13, "#f4f0e8", "center");
-    text("Weave through traffic · grab coins · open chests at 100", GW/2, oy + 50, 11, "#b8bcd8", "center");
+    text("Weave through traffic · grab coins · open chests", GW/2, oy + 50, 11, "#b8bcd8", "center");
     text(isPhone() ? "Tap to start" : "Click or press Space to start", GW/2, oy + 78, 14, "#7dffe0", "center");
   }
   if (game.state === "over"){
@@ -1474,7 +1483,7 @@ function draw(){
     text(`ROUND ${game.round}  ·  +${game.runCoins} COINS`, GW/2, oy + 66, 9, "#ffe08a", "center", "num");
     if (game.newBest) text("New best distance!", GW/2, oy + 88, 14, "#7dffe0", "center");
     if (game.goldCaught && !TEST.on) text("You won the Golden Car!", GW/2, oy + 106, 14, "#ffd34d", "center");
-    text(state.coins >= 100 ? (isFS() ? "Tap Exit to open a chest" : "You can open a chest below") : (100 - state.coins) + " coins until your next chest", GW/2, oy + 126, 12, "#f4f0e8", "center");
+    text(state.coins >= CHESTS.basic.cost ? (isFS() ? "Tap Exit to open a chest" : "You can open a chest below") : fmt(CHESTS.basic.cost - state.coins) + " coins until a Basic Chest", GW/2, oy + 126, 12, "#f4f0e8", "center");
     text(isPhone() ? "Tap to drive again" : "Click or press Space to drive again", GW/2, oy + 148, 13, "#c8cce8", "center");
   }
   if (game.paused){ ctx.fillStyle = "rgba(8,8,20,.5)"; ctx.fillRect(0, 0, GW, GH); text("PAUSED", GW/2, oy, 28, "#f4f0e8", "center"); text("Tap or press P to continue", GW/2, oy + 24, 12, "#b8bcd8", "center"); }
