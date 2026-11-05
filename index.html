@@ -4,7 +4,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&family=Figtree:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Pixelify+Sans:wght@400;600;700&family=Press+Start+2P&family=Figtree:wght@400;500;700&display=swap">
 <style>
 /* Layout: one column "expedition log" — game cabinet on top, chest + collection + save ledger below. Single night-desert look by choice. */
 :root{
@@ -285,6 +285,21 @@ textarea{width:100%;resize:vertical;min-height:64px;font-family:ui-monospace,Men
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%) translateY(20px);background:var(--panel);border:1px solid var(--sand);color:var(--ink);padding:10px 16px;border-radius:10px;font-family:var(--display);opacity:0;transition:.25s;pointer-events:none;z-index:20;max-width:calc(100% - 32px)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media (prefers-reduced-motion: reduce){.chest-stage.shake canvas#chestCv{animation:none}.toast,.progress i{transition:none}}
+
+/* the whole thing is one full-screen app: only the game shows; the account box pops up as a card */
+body.app{overflow:hidden;background:#05060e}
+body.app{--display:"Lilita One","Arial Black",sans-serif;--num:"Lilita One","Arial Black",sans-serif}
+body.app .cf-name,body.app #cfName{letter-spacing:.5px}
+body.app .wrap{padding:0;max-width:none}
+body.app .wrap > :not(.cabinet):not(#acct):not(.test-bar){display:none !important}
+body.app .fs-bar,body.app .fs-exit,body.app .over-cta,body.app .controls,body.app .rotate{display:none !important}
+body.app .cabinet{background:#05060e;padding:0}
+body.app .test-bar:not([hidden]){position:fixed;top:0;left:0;right:0;z-index:50;border-radius:0;margin:0}
+body.app #acct{display:none}
+body.app.sheet::after{content:"";position:fixed;inset:0;background:rgba(2,3,12,.72);z-index:55}
+body.app.sheet #acct{display:flex;flex-direction:column;gap:14px;position:fixed;z-index:60;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,440px);max-height:88vh;overflow:auto;margin:0;border-radius:20px;box-shadow:0 8px 0 #0a0c1e,0 20px 60px rgba(0,0,0,.6)}
+.sheet-x{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:12px;border:0;background:#3a4478;color:#fff;font:20px "Lilita One",sans-serif;cursor:pointer;box-shadow:0 4px 0 #1c2140}
+body:not(.app) .sheet-x{display:none}
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -313,7 +328,7 @@ window.FIREBASE_CONFIG = {
   </header>
 
   <div class="test-bar" id="testBar" hidden><b>Test drive mode</b><span>Every car is unlocked to try. Coins, chests, best scores and the leaderboard are paused.</span><button class="btn small" id="testOff" type="button">Exit test mode</button></div>
-  <section class="acct" id="acct" aria-labelledby="acctH">
+  <section class="acct" id="acct" aria-labelledby="acctH"><button class="sheet-x" id="sheetClose" type="button" aria-label="Close">✕</button>
     <div class="acct-copy">
       <h2 id="acctH">Save your garage</h2>
       <p id="acctLead">Sign up free to save your progress, keep your coins and save your cars. Then play on any device.</p>
@@ -348,8 +363,8 @@ window.FIREBASE_CONFIG = {
     </div><canvas id="game" width="960" height="360" aria-label="Traffic Runner game screen. Move the mouse or swipe to steer through traffic."></canvas></div>
     <div class="controls">
       <div class="runner-now"><canvas id="nowCv" width="112" height="64"></canvas><div>Driving <b id="nowName">—</b><br><span id="nowPerk"></span></div></div>
-      <div class="keys">Move the mouse to steer (or <kbd>←</kbd> <kbd>→</kbd>) · <kbd>Space</kbd> start · <kbd>P</kbd> pause</div>
-      <div class="tap-hint">Hold your finger on the game and swipe left and right to steer.</div>
+      <div class="keys">Move the mouse and the car follows it (or use the arrow keys) · <kbd>Space</kbd> start · <kbd>P</kbd> pause</div>
+      <div class="tap-hint">Hold your finger anywhere on the game and drag: the car moves with your finger, side to side and forward and back.</div>
       <div class="snd"><button class="snd-btn" data-snd="sfx" type="button" aria-pressed="true">Sound: On</button></div>
     </div>
   </section>
@@ -991,11 +1006,11 @@ document.addEventListener("click", e => {
 let chestBusy = false, lastPull = null;
 const chestCtx = setupCanvas($("chestCv"));
 // a red mechanic's tool chest; open, it holds tools, a spare tire and a set of keys
-function drawChest(open, t, ctx = chestCtx){
+function drawChest(open, t, ctx = chestCtx, forceEpic){
   ctx.clearRect(0, 0, 300, 300);
   ctx.save(); ctx.translate(150, 172); ctx.scale(6, 6);
   const P = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
-  const epic = ctx === cfChestCtx && chestKind === "epic";
+  const epic = forceEpic || (ctx === cfChestCtx && chestKind === "epic");
   const RED = epic ? "#6a2ab0" : "#d0262e", RED2 = epic ? "#9a5ae0" : "#f04a4a", DK = epic ? "#ffd34d" : "#7a1018", MET = "#c8ccd8", MET2 = "#8a8e9a";
   P(-13, 9, 26, 2, "rgba(0,0,0,.4)");
   P(-12, -2, 24, 11, RED); P(-12, -2, 24, 1, RED2); P(-12, 3, 24, 1, DK); P(-12, 7, 24, 1, DK);
@@ -1109,49 +1124,41 @@ $("cfRun").addEventListener("click", () => { if (lastPull) selectChar(lastPull.i
 /* ============================== GAME ==============================
    Top-down 6-lane highway. Everyone drives up the screen; traffic is slower than you, so it comes
    toward you and you weave around it. Mouse (or a finger swiping) steers left and right. */
+document.body.classList.add("app", "fs");             // one full-screen app: the game, its menus, and pop-ups
 const cv = $("game"); let ctx = setupCanvas(cv);
 let GW = 560, GH = 470, SCALE = 1;
 const LANES = 6, LANE_W = 54, ROAD_W = LANES*LANE_W;
 const CAR_S = .85;                            // every car is drawn (and collides) at 85% size
-let ROAD_X = 0, PY = 0;
+let ROAD_X = 0, PY = 0, HOME_Y = 0;      // PY is where your car is now; HOME_Y is where it starts
 // your car sits about two-thirds of the way down a phone screen (room for your thumb underneath), a bit lower on computers
-function layout(){ ROAD_X = Math.round(GW/2 - ROAD_W/2); PY = Math.round(GH*(isFS() ? .66 : .74)); }
+let LAST_GH = 0;
+function layout(){ ROAD_X = Math.round(GW/2 - ROAD_W/2); HOME_Y = Math.round(GH*(GW > GH ? .74 : .68));
+  let run = false; try { run = game.state === "running"; } catch {}
+  if (run && LAST_GH){ const k = GH/LAST_GH; PY *= k; game.ty *= k; } else { PY = HOME_Y; try { game.ty = HOME_Y; } catch {} }
+  LAST_GH = GH; }
 const laneX = i => ROAD_X + LANE_W*(i + .5);
 const isPhone = () => matchMedia("(pointer:coarse)").matches && Math.min(innerWidth, innerHeight) < 700;
 const isFS = () => document.body.classList.contains("fs");
 function sizeGame(){
-  const w = cv.clientWidth || cv.parentElement.clientWidth || 640, dpr = Math.min(window.devicePixelRatio || 1, 2);
-  if (isFS()){
-    const h = cv.parentElement.clientHeight || innerHeight;
-    GW = 372; GH = Math.max(520, Math.round(GW*h/w));
-    cv.style.aspectRatio = "auto";
-    const pw = Math.round(w*dpr), ph = Math.round(h*dpr);
-    if (cv.width !== pw || cv.height !== ph){ cv.width = pw; cv.height = ph; ctx.imageSmoothingEnabled = false; }
-    SCALE = cv.width/GW; layout(); return;
-  }
-  GH = 480; GW = w < 700 ? 372 : 600;
-  const room = window.innerHeight - (matchMedia("(pointer:coarse)").matches ? 120 : 170);
-  if (room > 160 && w*GH/GW > room) GW = Math.min(1200, Math.ceil(w*GH/room));
-  cv.style.aspectRatio = GW + " / " + GH;
-  const pw = Math.round(w*dpr), ph = Math.round(pw*GH/GW);
+  // the game always fills the whole window, like an app: phones get a tall road, wide screens a wide view
+  const w = cv.parentElement.clientWidth || innerWidth, h = cv.parentElement.clientHeight || innerHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (w/h < 1.05){ GW = 372; GH = Math.max(520, Math.round(GW*h/w)); }
+  else { GH = 480; GW = Math.max(560, Math.min(1400, Math.round(GH*w/h))); }
+  cv.style.aspectRatio = "auto";
+  const pw = Math.round(w*dpr), ph = Math.round(h*dpr);
   if (cv.width !== pw || cv.height !== ph){ cv.width = pw; cv.height = ph; ctx.imageSmoothingEnabled = false; }
+  const k = ROAD_W ? (game0().px - ROAD_X)/ROAD_W : 0, kt = (game0().tx - ROAD_X)/ROAD_W;
   SCALE = cv.width/GW; layout();
+  if (game0().px){ game.px = ROAD_X + k*ROAD_W; game.tx = ROAD_X + kt*ROAD_W; }
 }
+const game0 = () => { try { return game; } catch { return {}; } };
 sizeGame();
 window.addEventListener("resize", sizeGame);
-function enterFS(){
-  if (!isPhone() || isFS()) return;
-  document.body.classList.add("fs"); document.body.style.overflow = "hidden";
-  requestAnimationFrame(() => { const k = (game.px - ROAD_X)/ROAD_W, kt = (game.tx - ROAD_X)/ROAD_W; sizeGame(); game.px = ROAD_X + k*ROAD_W; game.tx = ROAD_X + kt*ROAD_W; });
+function enterFS(){   // on phones, ask the browser to hide its bars too
+  if (!isPhone() || document.fullscreenElement) return;
   try { const de = document.documentElement; (de.requestFullscreen || de.webkitRequestFullscreen)?.call(de).catch?.(() => {}); } catch {}
 }
-function exitFS(){
-  if (!isFS()) return;
-  if (game.state === "running") game.paused = true;
-  document.body.classList.remove("fs"); document.body.style.overflow = "";
-  try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
-  requestAnimationFrame(() => { const k = (game.px - ROAD_X)/ROAD_W, kt = (game.tx - ROAD_X)/ROAD_W; sizeGame(); game.px = ROAD_X + k*ROAD_W; game.tx = ROAD_X + kt*ROAD_W; });
-}
+function exitFS(){ if (game.state === "running") game.paused = true; }
 $("fsExit").addEventListener("click", exitFS);
 window.addEventListener("orientationchange", () => setTimeout(sizeGame, 200));
 
@@ -1160,16 +1167,15 @@ const SINK_CHANCE = 1/25, GOLD_CHANCE = 1/25;
 const game = {state:"ready", t:0, speed:0, dist:0, round:1, roundDist:0, runCoins:0, px:0, tx:0, vx:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
   scroll:0, rowT:0, safe:2, banner:null, paused:false, mt:0};
 function resetRun(){
-  Object.assign(game, {t:0, speed:420, dist:0, round:1, roundDist:0, runCoins:0, px:laneX(2.5), tx:laneX(2.5), vx:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
+  PY = HOME_Y; Object.assign(game, {t:0, speed:420, dist:0, round:1, roundDist:0, runCoins:0, px:laneX(2.5), tx:laneX(2.5), vx:0, ty:HOME_Y, vy:0, yaw:0, cars:[], coins:[], parts:[], smoke:[], skids:[], texts:[],
     rowT:1.1, safe:2 + Math.floor(Math.random()*2), banner:{text:"Round 1", sub: themeFor(curCar()) ? themeFor(curCar()).world : (TEST.on ? "Test drive" : "Let's roll!"), t:1.8}, paused:false, monsterEnd:false, mt:0, crashT:0,
     goldSpawned:false, goldCaught:false, smokeT:0});
 }
 function startRun(){
-  resetRun(); game.state = "running";
+  UI.screen = "home"; closeSheet(); resetRun(); game.state = "running";
   game.monsterAt = (TEST.sink || (!TEST.on && Math.random() < SINK_CHANCE)) ? (TEST.sink ? 60 : 200 + Math.random()*1000) : Infinity; TEST.sink = false;
   game.goldAt = (TEST.gold || (!TEST.on && Math.random() < GOLD_CHANCE)) ? (TEST.gold ? 50 : 150 + Math.random()*900) : Infinity; TEST.gold = false;
   $("overCta").hidden = true; Sound.start();
-  if (!isFS()){ const r = document.querySelector(".cabinet").getBoundingClientRect(); if (r.top < 0 || r.bottom > window.innerHeight) document.querySelector(".cabinet").scrollIntoView({behavior:"smooth", block: r.height > window.innerHeight ? "start" : "center"}); }
 }
 function endRun(){
   game.state = "over"; game.overT = game.t;
@@ -1200,7 +1206,7 @@ function spawnRow(){
     const car = truck ? {body:"truck", w:32*CAR_S, l:96*CAR_S, main: TRAFFIC_COLS[Math.floor(Math.random()*TRAFFIC_COLS.length)], accent:"#f4f4f8"}
       : (() => { const b = TRAFFIC_BODIES[Math.floor(Math.random()*TRAFFIC_BODIES.length)], m = TRAFFIC_COLS[Math.floor(Math.random()*TRAFFIC_COLS.length)]; return {body:b, w:BODY[b].w*CAR_S, l:BODY[b].l*CAR_S, main:m, accent:shade(m, .5), ex:"", tier:0}; })();
     car.x = laneX(l) + (Math.random() - .5)*6; car.y = -car.l/2 - 20 - Math.random()*30; car.v = v*(.97 + Math.random()*.06); car.lane = l;
-    if (r >= 3 && !truck && Math.random() < Math.min(.25, .06 + r*.03)) car.change = {dir: Math.random() < .5 ? -1 : 1, at: 60 + Math.random()*Math.max(60, PY - 320)};
+    if (r >= 3 && !truck && Math.random() < Math.min(.25, .06 + r*.03)) car.change = {dir: Math.random() < .5 ? -1 : 1, at: 60 + Math.random()*Math.max(60, HOME_Y - 320)};
     game.cars.push(car);
   });
   // a trail of coins down the safe lane
@@ -1279,7 +1285,7 @@ function update(dt){
   game.smoke.forEach(p => { p.x += p.vx*dt; p.y += (p.vy + (game.state === "running" ? game.speed*.75 : 40))*dt*(game.paused ? 0 : 1); p.life -= game.paused ? 0 : dt; }); game.smoke = game.smoke.filter(p => p.life > 0 && p.y < GH + 30);
   game.parts.forEach(p => { p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 200*dt; p.life -= dt; }); game.parts = game.parts.filter(p => p.life > 0);
   if (game.state === "monster"){ updateSink(dt); return; }
-  if (game.state === "ready"){ game.px += (game.tx - game.px)*Math.min(1, dt*6); if (Math.random() < dt*8) emitSmoke(c, dt); return; }
+  if (game.state === "ready"){ game.px += (game.tx - game.px)*Math.min(1, dt*6); PY += (HOME_Y - PY)*Math.min(1, dt*6); if (Math.random() < dt*8) emitSmoke(c, dt); return; }
   if (game.state !== "running" || game.paused){ return; }
   if (game.dist >= game.monsterAt){ startSink(); return; }
   if (!game.goldSpawned && game.dist >= game.goldAt){ game.goldSpawned = true; spawnGold(); }
@@ -1297,6 +1303,7 @@ function update(dt){
   const want = Math.max(drift ? -1250 : -1900, Math.min(drift ? 1250 : 1900, (game.tx - game.px)*(drift ? 11 : 26)));
   game.vx += (want - game.vx)*Math.min(1, dt*(drift ? 9 : 40));
   game.px = Math.max(lo - 4, Math.min(hi + 4, game.px + game.vx*dt));
+  PY = HOME_Y;
   const wantYaw = drift ? Math.max(-.7, Math.min(.7, game.vx*.0011)) : Math.max(-.18, Math.min(.18, game.vx*.00013));
   game.yaw += (wantYaw - game.yaw)*Math.min(1, dt*(drift ? 6 : 14));
   emitSmoke(c, dt);
@@ -1430,13 +1437,13 @@ function drawTraffic(car){
   ctx.restore();
 }
 function drawCoin(k){ const w = Math.max(1, Math.abs(Math.cos(k.spin))*7); ctx.fillStyle = "#8a5a10"; ctx.beginPath(); ctx.ellipse(k.x, k.y, w + 1, 8, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = "#ffc83a"; ctx.beginPath(); ctx.ellipse(k.x, k.y, w, 7, 0, 0, Math.PI*2); ctx.fill(); if (w > 3){ ctx.fillStyle = "#fff3b0"; ctx.fillRect(k.x - 1, k.y - 5, 2, 3); } }
-function textFont(size, kind){ return kind === "num" ? `${size}px "Press Start 2P", "Pixelify Sans", monospace` : `700 ${size}px "Pixelify Sans", "Courier New", monospace`; }
+function textFont(size){ return UFONT(size + 2); }
 function text(str, x, y, size, col, align, kind){
   ctx.font = textFont(size, kind); ctx.textAlign = align || "left";
   ctx.lineJoin = "round"; ctx.lineWidth = kind === "num" ? 3 : 3.5; ctx.strokeStyle = "rgba(8,8,16,.9)"; ctx.strokeText(str, x, y);
   ctx.fillStyle = col; ctx.fillText(str, x, y);
 }
-function draw(){
+function draw(dt){
   ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
   if (game.state === "monster" && game.mt < 2.4){ const q = Math.min(3, game.mt*2); ctx.translate((Math.random() - .5)*q, (Math.random() - .5)*q); }
   drawBG();
@@ -1455,43 +1462,294 @@ function draw(){
   }
   game.parts.forEach(p => { ctx.globalAlpha = Math.max(0, Math.min(1, p.life*2)); ctx.fillStyle = p.col; ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); }); ctx.globalAlpha = 1;
   game.texts.forEach(x => { ctx.globalAlpha = Math.max(0, Math.min(1, (1.2 - x.t)*3)); text(x.txt, x.x, x.y - x.t*24, 11, x.col, "center"); }); ctx.globalAlpha = 1;
-  // HUD
-  { const L = 10, top = 22;
-    ctx.fillStyle = "rgba(8,8,16,.45)"; ctx.fillRect(0, 0, GW, 52);
-    text("ROUND " + game.round, L, top, 10, "#ffd27a", "left", "num");
-    ctx.fillStyle = "rgba(0,0,0,.4)"; ctx.fillRect(L, top + 7, 100, 5); ctx.fillStyle = "#ff8a2a"; ctx.fillRect(L, top + 7, 100*Math.min(1, game.roundDist/ROUND_LEN(game.round)), 5);
-    if (GW >= 420) text("BEST " + fmt(Math.max(state.best, Math.floor(game.dist))) + "m", GW/2, top, 8, "#e0e4f5", "center", "num");
-    text(fmt(Math.floor(game.dist)) + "m", GW - 10, top, 12, "#ffffff", "right", "num");
-    const ct = fmt(state.coins); ctx.font = textFont(10, "num"); const cw = ctx.measureText(ct).width;
-    drawCoin({x: GW - 10 - cw - 11, y: top + 14, spin:0}); text(ct, GW - 10, top + 19, 10, "#ffe08a", "right", "num");
-    if (game.state !== "ready") text("+" + game.runCoins + " THIS RUN", GW - 10, top + 33, 6, "#e0e4f5", "right", "num"); }
-  const oy = Math.round(GH*.32);
-  if (game.banner && (game.state === "running" || game.state === "monster")){ const a = Math.min(1, game.banner.t*2); ctx.globalAlpha = a; text(game.banner.text, GW/2, oy, 26, game.banner.text.includes("GOLD") ? "#ffd34d" : "#ffb347", "center"); text(game.banner.sub, GW/2, oy + 22, 12, "#f4f0e8", "center"); ctx.globalAlpha = 1; }
-  if (game.state === "monster" && game.mt > .2 && !game.banner) text("SINKHOLE!", GW/2, oy, 30, "#ff6a4a", "center");
-  if (game.state === "ready"){
-    ctx.fillStyle = "rgba(8,8,20,.5)"; ctx.fillRect(0, 0, GW, GH);
-    text("TRAFFIC RUNNER", GW/2, oy, GW < 420 ? 28 : 34, "#ff8a2a", "center");
-    text(isPhone() ? "Hold your finger down and swipe to steer" : "Move your mouse left and right to steer", GW/2, oy + 30, 13, "#f4f0e8", "center");
-    text("Weave through traffic · grab coins · open chests", GW/2, oy + 50, 11, "#b8bcd8", "center");
-    text(isPhone() ? "Tap to start" : "Click or press Space to start", GW/2, oy + 78, 14, "#7dffe0", "center");
-  }
-  if (game.state === "over"){
-    ctx.fillStyle = game.monsterEnd ? "rgba(4,3,2,.92)" : "rgba(8,8,20,.6)"; ctx.fillRect(0, 0, GW, GH);
-    if (game.monsterEnd){ text("SWALLOWED BY", GW/2, oy - 14, 18, "#ff8a6a", "center"); text("A SINKHOLE!", GW/2, oy + 14, 28, "#ff5a3a", "center"); }
-    else text("CRASHED!", GW/2, oy + 6, 32, "#ff6a4a", "center");
-    text(fmt(Math.floor(game.dist)) + "m", GW/2, oy + 44, 20, "#ffffff", "center", "num");
-    text(`ROUND ${game.round}  ·  +${game.runCoins} COINS`, GW/2, oy + 66, 9, "#ffe08a", "center", "num");
-    if (game.newBest) text("New best distance!", GW/2, oy + 88, 14, "#7dffe0", "center");
-    if (game.goldCaught && !TEST.on) text("You won the Golden Car!", GW/2, oy + 106, 14, "#ffd34d", "center");
-    text(state.coins >= CHESTS.basic.cost ? (isFS() ? "Tap Exit to open a chest" : "You can open a chest below") : fmt(CHESTS.basic.cost - state.coins) + " coins until a Basic Chest", GW/2, oy + 126, 12, "#f4f0e8", "center");
-    text(isPhone() ? "Tap to drive again" : "Click or press Space to drive again", GW/2, oy + 148, 13, "#c8cce8", "center");
-  }
-  if (game.paused){ ctx.fillStyle = "rgba(8,8,20,.5)"; ctx.fillRect(0, 0, GW, GH); text("PAUSED", GW/2, oy, 28, "#f4f0e8", "center"); text("Tap or press P to continue", GW/2, oy + 24, 12, "#b8bcd8", "center"); }
+  uiFrame(dt);
 }
+/* ---------- what the shared app interface needs to know about Traffic Runner ---------- */
+const UI_CFG = {
+  title: [["TRAFFIC", "#ff8a2a", "#6a2a08"], ["RUNNER", "#7dffe0", "#0a4a42"]],
+  unit: "M", accent: "#ffb347", accentEdge: "rgba(255,179,71,.45)", defaultName: "Driver", monsterState: "monster",
+  collectionTitle: "GARAGE", collectionShort: "CARS", crateWord: "chest",
+  lockedMsg: "Open chests to find this car",
+  cardCol: "#262c3a", cardEdge: "#3a4456",
+  score: () => Math.floor(game.dist),
+  place: () => ({name: "ROUND " + game.round, progress: game.roundDist/ROUND_LEN(game.round)}),
+  bannerPre: () => "", bannerMain: t => t.toUpperCase(),
+  extra: (W, H) => { if (game.state === "monster" && game.mt > .2 && !game.banner) uiText("SINKHOLE!", W/2, H*.26, 40, "#ff6a4a", "center", "#5a1a08"); },
+  hint: () => isPhone() ? "Hold and drag to steer" : "Move your mouse and the car follows it",
+  play: () => go(), pause: () => { game.paused = true; }, resume: () => { game.paused = false; },
+  toReady: () => { resetRun(); game.state = "ready"; },
+  // a little car, seen from above, pointing right
+  icon: c => { c.beginPath(); c.roundRect(-12, -7, 24, 14, 4); c.fill(); c.fillStyle = "rgba(20,24,40,.55)"; c.fillRect(2, -5, 4, 10); c.fillRect(-8, -5, 3, 10);
+    c.fillStyle = "#ffd34d"; c.fillRect(10, -6, 2, 3); c.fillRect(10, 3, 2, 3); },
+  preview: (c, car, x, y, size, sil) => { const b = BODY[car.body] || BODY.sedan, k = size/Math.max(50, b.l);
+    c.save(); c.translate(x, y); c.rotate(Math.PI/2); c.scale(k, k); paintCar(c, car, {sil}); c.restore(); },
+  perk: c => (c.ex.includes("d") ? "Drifts · " : "") + SMOKE_NAME[c.smoke || ""] + (themeFor(c) ? " · " + themeFor(c).world : ""),
+  crates: () => [
+    {kind:"basic", name:"BASIC CHEST", cost:CHESTS.basic.cost, odds:`Mythic ${CHESTS.basic.w[5]}%  ·  Legendary ${CHESTS.basic.w[4]}%`, open: () => openChest("basic")},
+    {kind:"epic",  name:"EPIC CHEST",  cost:CHESTS.epic.cost,  odds:`Mythic ${CHESTS.epic.w[5]}%  ·  Legendary ${CHESTS.epic.w[4]}%`, open: () => openChest("epic")}],
+  drawCrate: (c, kind, t) => drawChest(false, t, c, kind === "epic"),
+  records: () => [["Best drive", fmt(state.best) + " m"], ["Best round", state.bestRound ? "Round " + state.bestRound : "—"], ["Drives", fmt(state.runs)], ["Coins earned", fmt(state.lifetimeCoins)], ["Chests opened", fmt(state.chests)]],
+  overInfo: () => ({title: game.monsterEnd ? "SWALLOWED!" : "CRASHED!", col: game.monsterEnd ? "#ff8a6a" : "#ff6a4a", deep: game.monsterEnd ? "#4a1a08" : "#6a1a0a", dark: game.monsterEnd,
+    place: game.goldCaught && !TEST.on ? "WON THE GOLDEN CAR!" : "ROUND " + game.round}),
+};
+/* ============================== APP INTERFACE ==============================
+   Shared by Spacey Jump, Fishy Swimmer and Traffic Runner. The game fills the whole screen like an app, and
+   everything else lives inside it: Home, Ships (the collection), Crates and Scores are screens drawn here, and the
+   account box pops up as a card on top. All of it is drawn in its own "interface space" so it looks the same in
+   every game: about 360 units wide on a phone held upright, about 420 units tall on a wide screen.
+   Each game fills in UI_CFG with the few things that differ (its name, colors, units, crates and so on). */
+document.body.classList.add("app", "fs");
+const UI = {W:360, H:640, U:1, buttons:[], pressed:null, screen:"home", scroll:0, maxScroll:0, cells:[], drag:null, t:0};
+const UFONT = size => `${size}px "Lilita One", "Arial Black", sans-serif`;
+try { document.fonts && document.fonts.load('24px "Lilita One"'); } catch (e) {}
+function uiMeasure(str, size){ ctx.font = UFONT(size); return ctx.measureText(str).width; }
+// chunky outlined text with a 3D drop underneath
+function uiText(str, x, y, size, col, align, deep){
+  ctx.font = UFONT(size); ctx.textAlign = align || "left"; ctx.lineJoin = "round";
+  const d = Math.max(2, Math.round(size*.1)), dark = deep === undefined ? "#0a0c1e" : deep;
+  if (dark){ ctx.fillStyle = dark; ctx.strokeStyle = dark; ctx.lineWidth = Math.max(3, size*.22); for (let k = d; k >= 1; k--){ ctx.strokeText(str, x, y + k); ctx.fillText(str, x, y + k); } ctx.strokeText(str, x, y); }
+  ctx.fillStyle = col; ctx.fillText(str, x, y);
+}
+function uiRR(x, y, w, h, r, fill){ ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); }
+function uiPill(x, y, w, h, fill, edge){ uiRR(x, y + 3, w, h, h/2, "rgba(0,0,0,.35)"); uiRR(x, y, w, h, h/2, fill); if (edge){ ctx.strokeStyle = edge; ctx.lineWidth = 1.5; ctx.stroke(); } }
+function uiCard(x, y, w, h){ uiRR(x, y + 6, w, h, 16, "rgba(0,0,0,.4)"); uiRR(x, y, w, h, 16, UI_CFG.cardCol || "#1c2350"); ctx.strokeStyle = UI_CFG.cardEdge || "#3a4a8a"; ctx.lineWidth = 2.5; ctx.stroke(); uiRR(x + 4, y + 4, w - 8, h*.4, 12, "rgba(255,255,255,.06)"); }
+function uiShade(hex, amt){ let [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); if (amt < 0){ r *= 1 + amt; g *= 1 + amt; b *= 1 + amt; } else { r += (255 - r)*amt; g += (255 - g)*amt; b += (255 - b)*amt; } return `rgb(${r|0},${g|0},${b|0})`; }
+function uiCoin(x, y, r){ ctx.fillStyle = "#8a5a10"; ctx.beginPath(); ctx.arc(x, y, r + 1, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = "#ffc83a"; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = "#fff3b0"; uiStar(x, y, r*.5); }
+function uiStar(x, y, r){ ctx.beginPath(); for (let i = 0; i < 10; i++){ const a = i*Math.PI/5 - Math.PI/2, rr = i % 2 ? r*.45 : r; ctx.lineTo(x + Math.cos(a)*rr, y + Math.sin(a)*rr); } ctx.closePath(); ctx.fill(); }
+// a big pressable button with a thick bottom edge; it sinks when pressed
+function uiButton(x, y, w, h, col, label, act, icon, badge){
+  const id = Math.round(x) + "," + Math.round(y), down = UI.pressed === id, lift = down ? 2 : 6;
+  uiRR(x, y + 6, w, h, 12, uiShade(col, -.45));
+  uiRR(x, y + 6 - lift, w, h, 12, col);
+  uiRR(x + 4, y + 9 - lift, w - 8, h*.38, 9, "rgba(255,255,255,.22)");
+  const cy = y + 6 - lift + h/2, size = h >= 44 ? 24 : 15;
+  let lx = x + w/2;
+  if (icon){ const ix = label ? x + (h >= 44 ? 30 : 20) : x + w/2, s2 = h >= 44 ? 1 : .72; ctx.save(); ctx.translate(ix, cy); ctx.scale(s2, s2); uiIcon(icon); ctx.restore(); if (label) lx = x + w/2 + (h >= 44 ? 12 : 9); }
+  if (label) uiText(label, lx, cy + size*.36, size, "#ffffff", "center", uiShade(col, -.55));
+  if (badge){ ctx.fillStyle = "#ff3a5a"; ctx.beginPath(); ctx.arc(x + w - 4, y + 2 - lift + 6, 9, 0, Math.PI*2); ctx.fill(); uiText("!", x + w - 4, y + 7 - lift + 6, 13, "#ffffff", "center", null); }
+  UI.buttons.push({x, y: y - 2, w, h: h + 8, act, id, label, icon});
+}
+function uiIcon(k){ ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#ffffff";
+  if (k === "play"){ ctx.beginPath(); ctx.moveTo(-6, -9); ctx.lineTo(9, 0); ctx.lineTo(-6, 9); ctx.closePath(); ctx.fill(); }
+  else if (k === "pause"){ ctx.fillRect(-7, -8, 5, 16); ctx.fillRect(2, -8, 5, 16); }
+  else if (k === "coin"){ uiCoin(0, 0, 7); }
+  else if (k === "home"){ ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(11, 0); ctx.lineTo(7, 0); ctx.lineTo(7, 9); ctx.lineTo(-7, 9); ctx.lineTo(-7, 0); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.fillRect(-2, 3, 4, 6); }
+  else if (k === "back"){ ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(0, -9); ctx.lineTo(0, -4); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(0, 4); ctx.lineTo(0, 9); ctx.closePath(); ctx.fill(); }
+  else if (k === "trophy"){ ctx.fillRect(-7, -9, 14, 9); ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI); ctx.fill(); ctx.fillRect(-2, 5, 4, 4); ctx.fillRect(-6, 8, 12, 3); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(-8, -4, 3.4, Math.PI*.5, Math.PI*1.5); ctx.stroke(); ctx.beginPath(); ctx.arc(8, -4, 3.4, -Math.PI*.5, Math.PI*.5); ctx.stroke(); }
+  else if (k === "person"){ ctx.beginPath(); ctx.arc(0, -4, 5, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(0, 8, 9, 6, 0, Math.PI, 0); ctx.fill(); }
+  else if (k === "sound" || k === "mute"){ ctx.beginPath(); ctx.moveTo(-9, -4); ctx.lineTo(-4, -4); ctx.lineTo(2, -9); ctx.lineTo(2, 9); ctx.lineTo(-4, 4); ctx.lineTo(-9, 4); ctx.closePath(); ctx.fill(); ctx.lineWidth = 2;
+    if (k === "sound"){ ctx.beginPath(); ctx.arc(3, 0, 5, -.9, .9); ctx.stroke(); ctx.beginPath(); ctx.arc(3, 0, 9, -.9, .9); ctx.stroke(); } else { ctx.beginPath(); ctx.moveTo(5, -5); ctx.lineTo(12, 5); ctx.moveTo(12, -5); ctx.lineTo(5, 5); ctx.stroke(); } }
+  else if (k === "crate"){ ctx.fillRect(-9, -4, 18, 12); ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(-9, -1, 18, 2); ctx.fillStyle = "#ffffff"; ctx.fillRect(-10, -8, 20, 5); ctx.fillStyle = "#ffd34d"; ctx.fillRect(-2, -6, 4, 4); }
+  else if (k === "collection"){ ctx.save(); ctx.scale(.9, .9); UI_CFG.icon(ctx); ctx.restore(); }
+}
+function uiCoins(rx, y){ const ct = fmt(state.coins), w = uiMeasure(ct, 18) + 44; uiPill(rx - w, y, w, 32, "rgba(10,14,40,.75)", "rgba(255,211,77,.55)"); uiCoin(rx - w + 17, y + 16, 8); uiText(ct, rx - 12, y + 23, 18, "#ffe08a", "right"); }
+function uiDim(a){ ctx.fillStyle = `rgba(4,6,18,${a})`; ctx.fillRect(0, 0, UI.W, UI.H); }
+const signedIn = () => Saves.mode === "fire";
+function openSheet(mode){ document.body.classList.add("sheet"); if (mode) setAuthMode(mode); }
+function closeSheet(){ document.body.classList.remove("sheet"); }
+const CRW = () => UI_CFG.crateWord || "crate";
+const canCrate = () => !TEST.on && UI_CFG.crates().some(k => state.coins >= k.cost);
+function goScreen(s){ if (game.state !== "ready") UI_CFG.toReady(); UI.screen = s; UI.scroll = 0; }
+
+/* ---------- drawing, once per frame, after the game has drawn its world ---------- */
+function uiFrame(dt){
+  const w = cv.width, h = cv.height;
+  if (w/h < 1.05){ UI.W = 360; UI.H = 360*h/w; } else { UI.H = 420; UI.W = 420*w/h; }
+  UI.U = w/UI.W; UI.t += dt || 1/60;
+  ctx.save(); ctx.setTransform(UI.U, 0, 0, UI.U, 0, 0); UI.buttons = [];
+  const st = game.state, W = UI.W, H = UI.H, playing = st === "running" || st === UI_CFG.monsterState;
+  if (playing || game.paused) uiHUD();
+  if (game.banner && st === "running" && !game.paused) uiBanner();
+  if (UI_CFG.extra) UI_CFG.extra(W, H);
+  if (st === "ready") uiMenu();
+  if (st === "over") uiOver();
+  if (game.paused){ uiDim(.55); uiText("PAUSED", W/2, H*.38, 44, "#ffffff", "center"); uiButton(W/2 - 85, H*.38 + 26, 170, 54, "#5ad85a", "RESUME", () => UI_CFG.resume(), "play"); }
+  if (st !== "ready" || UI.screen === "home") uiCoins(W - 12, 12);
+  ctx.restore();
+}
+function uiHUD(){
+  const W = UI.W, sc = fmt(UI_CFG.score());
+  uiText(sc, 14, 50, 42, "#ffffff", "left");
+  uiText(UI_CFG.unit, 20 + uiMeasure(sc, 42), 50, 16, UI_CFG.accent, "left");
+  const p = UI_CFG.place(), pw = Math.max(116, uiMeasure(p.name, 13) + 28);
+  uiPill(12, 60, pw, 28, "rgba(10,14,40,.75)", UI_CFG.accentEdge);
+  uiText(p.name, 12 + pw/2, 77, 13, "#ffd27a", "center");
+  uiRR(20, 81, pw - 16, 3, 2, "rgba(255,255,255,.15)"); uiRR(20, 81, (pw - 16)*Math.min(1, p.progress), 3, 2, UI_CFG.accent);
+  if (game.state === "running" && !game.paused) uiButton(W - 54, 52, 42, 36, "#3a4478", "", () => UI_CFG.pause(), "pause");
+}
+function uiBanner(){
+  const b = game.banner, a = Math.min(1, b.t*2), W = UI.W, y = UI.H*.3;
+  ctx.globalAlpha = a;
+  const pre = UI_CFG.bannerPre && UI_CFG.bannerPre(b.text);
+  if (pre) uiText(pre, W/2, y - 34, 14, UI_CFG.accent, "center");
+  const main = UI_CFG.bannerMain ? UI_CFG.bannerMain(b.text) : b.text.toUpperCase();
+  uiText(main, W/2, y, main.length > 18 ? 26 : 34, "#ffd27a", "center");
+  if (b.sub) uiText(b.sub, W/2, y + 28, 14, "#ffffff", "center");
+  ctx.globalAlpha = 1;
+}
+// home, collection, crates, scores
+function uiMenu(){
+  const s = UI.screen;
+  if (s !== "home") uiDim(.72);
+  if (s === "home") uiHome(); else if (s === "ships") uiCollection(); else if (s === "crates") uiCrates(); else if (s === "scores") uiScores();
+}
+function uiHeader(title){
+  const g = ctx.createLinearGradient(0, 0, 0, 84); g.addColorStop(0, "rgba(4,6,16,.88)"); g.addColorStop(1, "rgba(4,6,16,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, UI.W, 84);
+  uiButton(12, 12, 48, 40, "#5a6ab8", "", () => goScreen("home"), "back");
+  uiText(title, UI.W/2, 44, UI.W < 420 ? 26 : 30, "#ffffff", "center");
+}
+function uiHome(){
+  const W = UI.W, H = UI.H, g = ctx.createLinearGradient(0, 0, 0, 170); g.addColorStop(0, "rgba(4,6,16,.55)"); g.addColorStop(1, "rgba(4,6,16,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, 170);
+  uiButton(12, 12, 44, 38, "#3a4478", "", () => Sound.setSfx(!Sound.prefs.sfx), Sound.prefs.sfx ? "sound" : "mute");
+  const T = UI_CFG.title, big = Math.max(40, Math.min(W < 420 ? 52 : 62, (H - 250)/2.3)), block = big*2.1 + 250;
+  const ly = Math.max(60, (H - block)*.42) + big*.8;
+  uiText(T[0][0], W/2, ly, big, T[0][1], "center", T[0][2]);
+  uiText(T[1][0], W/2, ly + big*.98, big*1.1, T[1][1], "center", T[1][2]);
+  const py = ly + big*1.32;
+  if (state.best){ const t = "BEST  " + fmt(state.best) + " " + UI_CFG.unit, w = uiMeasure(t, 15) + 30; uiPill(W/2 - w/2, py, w, 28, "rgba(10,14,40,.75)", "rgba(255,211,77,.55)"); uiText(t, W/2, py + 20, 15, "#ffd27a", "center"); }
+  const by = py + 44;
+  uiButton(W/2 - 88, by, 176, 56, "#5ad85a", "PLAY", () => UI_CFG.play(), "play");
+  const sw = 64, gap = 10, x0 = W/2 - (sw*4 + gap*3)/2, y2 = by + 72;
+  uiButton(x0, y2, sw, 50, "#3a8ae8", "", () => goScreen("ships"), "collection");
+  uiButton(x0 + (sw + gap), y2, sw, 50, "#9a5ae0", "", () => goScreen("crates"), "crate", canCrate());
+  uiButton(x0 + (sw + gap)*2, y2, sw, 50, "#e8a02a", "", () => goScreen("scores"), "trophy");
+  uiButton(x0 + (sw + gap)*3, y2, sw, 50, "#2ab8a8", "", () => openSheet(signedIn() ? null : "signup"), "person", !signedIn());
+  [UI_CFG.collectionShort, CRW().toUpperCase() + "S", "SCORES", signedIn() ? "ME" : "SAVE"].forEach((t, i) => uiText(t, x0 + sw/2 + i*(sw + gap), y2 + 70, 12, "#d8deef", "center"));
+  if (H - (y2 + 70) > 50){ uiText(UI_CFG.hint(), W/2, y2 + 96, 13, "#c8d0e8", "center"); const c = curCar(); uiText(c.name.toUpperCase(), W/2, y2 + 116, 13, TIERS[c.tier].color, "center"); }
+  if (TEST.on) uiText("TEST MODE", W/2, 74, 13, "#ffd34d", "center");
+}
+/* the collection: your current pick up top, every one in a scrolling grid below */
+function uiCollection(){
+  const W = UI.W, H = UI.H, c = curCar(), owned = Object.keys(state.owned).length;
+  const py0 = 66; uiCard(12, py0, W - 24, 108);
+  const pw = Math.min(150, W*.36);
+  UI_CFG.preview(ctx, c, 24 + pw/2, py0 + 54 + Math.sin(UI.t*2.4)*3, pw, false, UI.t);
+  const tx = 32 + pw;
+  uiText(c.name, tx, py0 + 38, W < 420 ? 17 : 22, "#ffffff", "left");
+  uiText(TIERS[c.tier].name.toUpperCase(), tx, py0 + 62, 13, TIERS[c.tier].color, "left");
+  uiText(UI_CFG.perk(c), tx, py0 + 84, 12, "#a8b2d8", "left", null);
+  const top = py0 + 120, bottom = H - 12, cols = W < 440 ? 3 : W < 700 ? 5 : 6, gap = 8, cw = (W - 24 - gap*(cols - 1))/cols, ch = cw*.8 + 30;
+  const list = SORTED, rows = Math.ceil(list.length/cols);
+  UI.maxScroll = Math.max(0, rows*(ch + gap) - (bottom - top) + 8); UI.scroll = Math.min(UI.scroll, UI.maxScroll);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, top, W, bottom - top); ctx.clip();
+  UI.cells = [];
+  list.forEach((s, i) => { const col = i % cols, row = Math.floor(i/cols), x = 12 + col*(cw + gap), y = top + row*(ch + gap) - UI.scroll;
+    if (y > bottom || y + ch < top) return;
+    const own = TEST.on || !!state.owned[s.id], sel = s.id === c.id, tc = TIERS[s.tier].color;
+    uiRR(x, y + 4, cw, ch, 10, "rgba(0,0,0,.35)"); uiRR(x, y, cw, ch, 10, own ? (UI_CFG.cardCol || "#1c2350") : "#141830");
+    ctx.strokeStyle = sel ? "#ffffff" : own ? tc : "#2a3058"; ctx.lineWidth = sel ? 3 : 2; ctx.beginPath(); ctx.roundRect(x, y, cw, ch, 10); ctx.stroke();
+    UI_CFG.preview(ctx, s, x + cw/2, y + cw*.4, cw*.72, !own, 0);
+    const nm = own ? (s.name.length > 13 ? s.name.slice(0, 12) + "…" : s.name) : "???";
+    uiText(nm, x + cw/2, y + ch - 20, Math.max(9, Math.min(12, cw/10)), "#ffffff", "center");
+    uiText(TIERS[s.tier].name.toUpperCase(), x + cw/2, y + ch - 7, Math.max(8, Math.min(10, cw/12)), tc, "center", null);
+    UI.cells.push({x, y, w:cw, h:ch, id:s.id, own}); });
+  ctx.restore();
+  if (UI.maxScroll > 0){ const bh = (bottom - top)*(bottom - top)/(bottom - top + UI.maxScroll); uiRR(W - 6, top + (bottom - top - bh)*UI.scroll/UI.maxScroll, 4, bh, 2, "rgba(255,255,255,.25)"); }
+  uiHeader(UI_CFG.collectionTitle); uiCoins(W - 12, 12);
+  uiText(fmt(owned) + " / " + CHARS.length, W/2, 62, 12, "#a8b2d8", "center", null);
+}
+/* crates */
+const uiCrateCvs = {};
+function uiCrates(){
+  const W = UI.W, H = UI.H; uiHeader(CRW().toUpperCase() + "S"); uiCoins(W - 12, 12);
+  const list = UI_CFG.crates(), wide = W >= 560, n = list.length, cw = wide ? Math.min(270, (W - 24 - 16*(n - 1))/n) : W - 24, chh = wide ? 280 : 172;
+  list.forEach((k, i) => {
+    const x = wide ? W/2 - (cw*n + 16*(n - 1))/2 + i*(cw + 16) : 12, y = wide ? 78 : 76 + i*(chh + 14), can = state.coins >= k.cost && !TEST.on;
+    uiCard(x, y, cw, chh);
+    if (!uiCrateCvs[k.kind]){ uiCrateCvs[k.kind] = document.createElement("canvas"); uiCrateCvs[k.kind].width = uiCrateCvs[k.kind].height = 300; }
+    UI_CFG.drawCrate(uiCrateCvs[k.kind].getContext("2d"), k.kind, UI.t);
+    const sz = wide ? 150 : 116;
+    ctx.drawImage(uiCrateCvs[k.kind], wide ? x + cw/2 - sz/2 : x + 4, wide ? y + 6 : y + chh/2 - sz/2 - 6, sz, sz);
+    const tx = wide ? x + cw/2 : x + sz + 12, al = wide ? "center" : "left";
+    uiText(k.name, tx, wide ? y + 176 : y + 40, wide ? 21 : 19, "#ffffff", al);
+    uiText(k.odds, tx, wide ? y + 198 : y + 62, 12, "#ff9ad8", al, null);
+    const bw = wide ? 156 : Math.min(156, cw - sz - 24), bx = wide ? x + cw/2 - bw/2 : tx;
+    uiButton(bx, wide ? y + 214 : y + 82, bw, 44, can ? "#5ad85a" : "#4a5070", fmt(k.cost), () => { if (TEST.on) toast("Opening " + CRW() + "s is paused in test mode"); else if (state.coins < k.cost) toast(fmt(k.cost - state.coins) + " more coins needed"); else k.open(); }, "coin");
+  });
+  const cheapest = Math.min(...list.map(k => k.cost)), dear = Math.max(...list.map(k => k.cost));
+  const yb = wide ? 78 + chh + 26 : 76 + n*(chh + 14) + 10;
+  uiText(state.coins >= dear ? (n > 1 ? "You can open any " + CRW() + "!" : "You can open a " + CRW() + "!") : state.coins >= cheapest ? fmt(dear - state.coins) + " more coins for the best " + CRW() : fmt(cheapest - state.coins) + " more coins for a " + CRW(), W/2, yb, 14, "#c8d0e8", "center");
+  uiText("Duplicates pay back coins", W/2, yb + 22, 12, "#8a94b8", "center", null);
+}
+/* scores */
+function uiScores(){
+  const W = UI.W, H = UI.H; uiHeader("SCORES"); uiCoins(W - 12, 12);
+  const wide = W >= 560, cw = wide ? Math.min(340, (W - 48)/2) : W - 24;
+  const x1 = wide ? W/2 - cw - 8 : 12, y1 = 76, h1 = wide ? 300 : 262;
+  uiCard(x1, y1, cw, h1);
+  uiText("TODAY'S TOP 10", x1 + cw/2, y1 + 30, 18, "#ffd27a", "center");
+  const rows = (typeof LB !== "undefined" && LB.rows) ? LB.rows : [];
+  if (!signedIn()){
+    uiText("Save your progress to join", x1 + cw/2, y1 + 72, 14, "#c8d0e8", "center", null);
+    uiText("the daily leaderboard", x1 + cw/2, y1 + 92, 14, "#c8d0e8", "center", null);
+    uiButton(x1 + cw/2 - 82, y1 + 110, 164, 44, "#2ab8a8", "SIGN UP", () => openSheet("signup"), "person");
+    uiButton(x1 + cw/2 - 62, y1 + 170, 124, 36, "#4a5a98", "LOG IN", () => openSheet("login"));
+  } else if (!rows.length) uiText("No scores yet today. Be first!", x1 + cw/2, y1 + 80, 14, "#c8d0e8", "center", null);
+  else { const lh = Math.min(22, (h1 - 54)/10);
+    rows.slice(0, 10).forEach((r, i) => { const y = y1 + 58 + i*lh, me = r.id === Saves.uid;
+      if (me) uiRR(x1 + 8, y - lh + 6, cw - 16, lh, 6, "rgba(127,215,255,.15)");
+      uiText(String(i + 1), x1 + 24, y, 14, i < 3 ? ["#ffd34d","#d8dce8","#e8a060"][i] : "#a8b2d8", "center", null);
+      uiText(cleanName(r.name) || UI_CFG.defaultName, x1 + 42, y, 14, me ? "#7fd7ff" : "#ffffff", "left", null);
+      uiText(fmt(Math.floor(+r.best || 0)) + " " + UI_CFG.unit.toLowerCase(), x1 + cw - 14, y, 14, "#ffe08a", "right", null); }); }
+  const x2 = wide ? W/2 + 8 : 12, y2 = wide ? y1 : y1 + h1 + 14, h2 = 182;
+  uiCard(x2, y2, cw, h2);
+  uiText("YOUR RECORDS", x2 + cw/2, y2 + 30, 18, "#7fd7ff", "center");
+  UI_CFG.records().forEach(([a, b], i) => { uiText(a, x2 + 16, y2 + 62 + i*24, 14, "#a8b2d8", "left", null); uiText(b, x2 + cw - 16, y2 + 62 + i*24, 15, "#ffffff", "right", null); });
+}
+/* the crash screen: a score card and big buttons */
+function uiOver(){
+  const W = UI.W, H = UI.H, o = UI_CFG.overInfo();
+  uiDim(o.dark ? .78 : .5);
+  const top = Math.max(108, H*.24);
+  uiText(o.title, W/2, top, W < 420 ? 40 : 48, o.col, "center", o.deep);
+  const cw = Math.min(310, W - 40), cx = W/2 - cw/2, cy = top + 18;
+  uiCard(cx, cy, cw, 124);
+  const sc = fmt(UI_CFG.score());
+  uiText(sc, W/2 - 10, cy + 58, 50, "#ffffff", "center");
+  uiText(UI_CFG.unit, W/2 + uiMeasure(sc, 50)/2 - 4, cy + 58, 17, UI_CFG.accent, "left");
+  if (game.newBest){ uiPill(W/2 - 60, cy + 68, 120, 24, "#ffd34d", "#a87a10"); uiText("NEW BEST!", W/2, cy + 86, 15, "#5a3a00", "center", null); }
+  else uiText("BEST  " + fmt(state.best) + " " + UI_CFG.unit, W/2, cy + 86, 14, "#9aa4c8", "center");
+  uiText(o.place, cx + 16, cy + 112, 14, "#ffd27a", "left");
+  const cs = "+" + game.runCoins; uiText(cs, cx + cw - 16, cy + 112, 16, "#ffe08a", "right"); uiCoin(cx + cw - 28 - uiMeasure(cs, 16), cy + 106, 7);
+  const by = cy + 142;
+  if (game.t - game.overT > .5){
+    uiButton(W/2 - 88, by, 176, 56, "#5ad85a", "PLAY", () => UI_CFG.play(), "play");
+    const sw = 72, gap = 8, x0 = W/2 - (sw*3 + gap*2)/2;
+    uiButton(x0, by + 70, sw, 42, "#5a6ab8", "", () => goScreen("home"), "home");
+    uiButton(x0 + sw + gap, by + 70, sw, 42, "#3a8ae8", "", () => goScreen("ships"), "collection");
+    uiButton(x0 + (sw + gap)*2, by + 70, sw, 42, "#9a5ae0", "", () => goScreen("crates"), "crate", canCrate());
+  }
+}
+
+/* ---------- input: buttons first, then menu dragging and taps, and only then the game itself ---------- */
+function uiPoint(e){ const r = cv.getBoundingClientRect(); return [(e.clientX - r.left)*cv.width/r.width/UI.U, (e.clientY - r.top)*cv.height/r.height/UI.U]; }
+function uiHit(e){ const [x, y] = uiPoint(e); return UI.buttons.find(b => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h); }
+// returns true when the interface used the tap, so the game should ignore it
+function uiPointerDown(e){
+  if (typeof cfOpen !== "undefined" && cfOpen) return true;
+  if (document.body.classList.contains("sheet")) return true;
+  const b = uiHit(e);
+  if (b){ UI.pressed = b.id; Sound.click && Sound.click(); setTimeout(() => { UI.pressed = null; b.act(); }, 90); return true; }
+  if (game.state === "ready" && UI.screen !== "home"){ const [x, y] = uiPoint(e); const cell = UI.screen === "ships" && UI.cells.find(c => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h);
+    UI.drag = {y, s0: UI.scroll, moved:false, tap: cell ? () => { if (cell.own){ Sound.click && Sound.click(); selectChar(cell.id); } else toast(UI_CFG.lockedMsg); } : null}; return true; }
+  if (game.state === "over") return true;            // after a crash, use the buttons
+  if (game.paused) return true;
+  return false;
+}
+cv.addEventListener("pointermove", e => { const d = UI.drag; if (!d) return; const [, y] = uiPoint(e); if (Math.abs(y - d.y) > 6) d.moved = true; if (d.moved) UI.scroll = Math.max(0, Math.min(UI.maxScroll, d.s0 - (y - d.y))); });
+cv.addEventListener("pointerup", () => { const d = UI.drag; UI.drag = null; if (d && !d.moved && d.tap) d.tap(); });
+cv.addEventListener("wheel", e => { if (game.state === "ready" && UI.screen === "ships"){ e.preventDefault(); UI.scroll = Math.max(0, Math.min(UI.maxScroll, UI.scroll + e.deltaY*.5)); } }, {passive:false});
+// keyboard: returns true when the interface used the key
+function uiKey(e){
+  if (document.body.classList.contains("sheet")){ if (e.key === "Escape") closeSheet(); return e.key === "Escape" || e.code === "Space" && !typing(); }
+  if (game.state === "ready" && UI.screen !== "home"){ if (e.key === "Escape") goScreen("home"); return e.key === "Escape" || e.code === "Space" || e.code === "Enter"; }
+  return false;
+}
+$("sheetClose").addEventListener("click", closeSheet);
 let last = performance.now();
 function frame(now){
   const dt = Math.max(0, Math.min(.033, (now - last)/1000)); last = now;
-  update(dt); draw();
+  update(dt); draw(dt);
   { const hide = (game.state === "running" || game.state === "monster") && !game.paused; if (hide !== frame.hid){ frame.hid = hide; cv.style.cursor = hide ? "none" : ""; } }
   drawChest(false, now/1000);
   if (cfOpen){ cfDraw(dt); drawChest(cfRevealed, now/1000, cfChestCtx); cfCharCtx.clearRect(0, 0, 400, 400); if (cfRevealed && lastPull) drawChar(cfCharCtx, lastPull, {x:200, y:300, s:12, t:now/1000}); }
@@ -1500,7 +1758,7 @@ function frame(now){
 }
 
 /* ---------- controls ---------- */
-const keys = {L:false, R:false};
+const keys = {L:false, R:false, U:false, D:false};
 const typing = () => { const a = document.activeElement; return a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT" || a.tagName === "BUTTON"); };
 function go(){
   if (cfOpen) return;
@@ -1511,24 +1769,27 @@ function go(){
 }
 document.addEventListener("keydown", e => {
   if (cfOpen){ if (e.key === "Escape") closeChest(); return; }
+  if (uiKey(e)){ e.preventDefault(); return; }
   if (typing()) return;
   if (e.code === "ArrowLeft" || e.code === "KeyA"){ keys.L = true; e.preventDefault(); }
   else if (e.code === "ArrowRight" || e.code === "KeyD"){ keys.R = true; e.preventDefault(); }
-  else if (e.code === "Space" || e.code === "Enter"){ e.preventDefault(); if (!e.repeat) go(); }
+  else if (e.code === "Space" || e.code === "Enter"){ e.preventDefault(); if (!e.repeat && !(game.state === "over" && game.t - game.overT < .8)) go(); }
   else if (e.code === "KeyP" && game.state === "running") game.paused = !game.paused;
 });
-document.addEventListener("keyup", e => { if (e.code === "ArrowLeft" || e.code === "KeyA") keys.L = false; if (e.code === "ArrowRight" || e.code === "KeyD") keys.R = false; });
+document.addEventListener("keyup", e => { if (e.code === "ArrowLeft" || e.code === "KeyA") keys.L = false; if (e.code === "ArrowRight" || e.code === "KeyD") keys.R = false; if (e.code === "ArrowUp" || e.code === "KeyW") keys.U = false; if (e.code === "ArrowDown" || e.code === "KeyS") keys.D = false; });
 // mouse: the car follows the pointer. Finger: hold and swipe, and the car moves with your swipe.
 const toWorldX = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left)/r.width*GW; };
-let touchX = null;
+const toWorldY = e => { const r = cv.getBoundingClientRect(); return (e.clientY - r.top)/r.height*GH; };
+let touchX = null, touchY = null;
 cv.addEventListener("pointerdown", e => { e.preventDefault(); Sound.wake();
-  if (e.pointerType !== "mouse"){ touchX = toWorldX(e); cv.setPointerCapture?.(e.pointerId); }
+  if (uiPointerDown(e)) return;
+  if (e.pointerType !== "mouse"){ touchX = toWorldX(e); touchY = toWorldY(e); cv.setPointerCapture?.(e.pointerId); }
   else if (game.state === "running") game.tx = toWorldX(e);
   if (game.state !== "running" || game.paused) go(); });
 cv.addEventListener("pointermove", e => {
-  if (e.pointerType === "mouse"){ if (game.state === "running" || game.state === "ready") game.tx = toWorldX(e); return; }
+  if (e.pointerType === "mouse"){ if (game.state === "running") game.tx = toWorldX(e); return; }
   if (touchX === null) return; const x = toWorldX(e); game.tx += (x - touchX)*1.25; touchX = x; });
-const endTouch = e => { if (e.pointerType !== "mouse") touchX = null; };
+const endTouch = e => { if (e.pointerType !== "mouse"){ touchX = null; touchY = null; } };
 cv.addEventListener("pointerup", endTouch); cv.addEventListener("pointercancel", endTouch);
 cv.addEventListener("contextmenu", e => e.preventDefault());
 const sideways = matchMedia("(pointer:coarse) and (orientation:landscape) and (max-height:520px)");
@@ -1627,8 +1888,8 @@ function renderLB(){
 }
 setInterval(() => { if (Saves.fs){ if (todayKey() !== LB.day){ lbSubscribe(); } else $("lbReset").textContent = resetText(); } }, 30000);
 function goAuth(mode){
-  exitFS(); setAuthMode(mode); $("overCta").hidden = true;
-  $("acct").scrollIntoView({behavior:"smooth", block:"start"});
+  setAuthMode(mode); $("overCta").hidden = true;
+  openSheet(mode);
   setTimeout(() => $("authEmail").focus({preventScroll:true}), 450);
 }
 function defaultName(u){
